@@ -87,6 +87,10 @@ public class PlaceOrderUseCase {
             return replay(orders.findByIdempotencyKey(idempotencyKey).orElseThrow(() -> e), userId);
         }
         UUID orderId = order.getId();
+        if (lines.isEmpty()) {
+            // only possible from a cart (POST /api/orders validates its items): recorded, then rejected
+            throw rejected(orderId, RejectionReason.EMPTY_CART, "The cart is empty");
+        }
 
         // 3. pre-checkout lookups, in parallel
         List<UUID> productIds = lines.stream().map(OrderLine::productId).toList();

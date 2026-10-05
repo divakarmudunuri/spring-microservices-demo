@@ -1,0 +1,5 @@
+logging:
+  level:
+    # total time of each page vs. each call's time
+    com.smd.storefrontbff.storefront: debug
+    com.smd.storefrontbff.composition: debug

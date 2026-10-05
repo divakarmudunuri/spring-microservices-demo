@@ -1,5 +1,6 @@
 package com.smd.orderservice.api;
 
+import com.smd.orderservice.checkout.CheckoutFromCartUseCase;
 import com.smd.orderservice.checkout.OrderLine;
 import com.smd.orderservice.checkout.PlaceOrderUseCase;
 import com.smd.orderservice.delivery.DeliveryAcknowledgementService;
@@ -40,11 +41,14 @@ public class OrderController {
     private final OrderQueryService orderQueries;
     private final OrderDetailsService orderDetails;
     private final DeliveryAcknowledgementService acknowledgement;
+    private final CheckoutFromCartUseCase checkoutFromCart;
     private final CurrentUser currentUser;
 
     public OrderController(PlaceOrderUseCase placeOrder, OrderQueryService orderQueries, OrderDetailsService orderDetails,
-                           DeliveryAcknowledgementService acknowledgement, CurrentUser currentUser) {
+                           DeliveryAcknowledgementService acknowledgement, CheckoutFromCartUseCase checkoutFromCart,
+                           CurrentUser currentUser) {
         this.placeOrder = placeOrder;
+        this.checkoutFromCart = checkoutFromCart;
         this.orderQueries = orderQueries;
         this.orderDetails = orderDetails;
         this.acknowledgement = acknowledgement;
@@ -70,6 +74,18 @@ public class OrderController {
             @Valid @RequestBody PlaceOrderRequest request) {
         var lines = request.items().stream().map(i -> new OrderLine(i.productId(), i.quantity())).toList();
         Order order = placeOrder.placeOrder(currentUser.id(), idempotencyKey, null, lines);
+        return ResponseEntity.created(URI.create("/api/orders/" + order.getId())).body(OrderResponse.from(order));
+    }
+
+    /**
+     * The storefront's checkout: the customer's cart becomes the order (empty body). Same responses as
+     * {@code POST /api/orders}, plus {@code 422 EMPTY_CART}. {@code Idempotency-Key} is optional here: without one,
+     * the cart's id + version is the key, so the same cart contents can only be ordered once.
+     */
+    @PostMapping("/checkout")
+    public ResponseEntity<OrderResponse> checkout(
+            @RequestHeader(value = "Idempotency-Key", required = false) @Size(max = 100) String idempotencyKey) {
+        Order order = checkoutFromCart.checkout(currentUser.id(), idempotencyKey);
         return ResponseEntity.created(URI.create("/api/orders/" + order.getId())).body(OrderResponse.from(order));
     }
 

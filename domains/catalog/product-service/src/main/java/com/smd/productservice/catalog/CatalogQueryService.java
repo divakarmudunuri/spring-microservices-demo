@@ -30,8 +30,9 @@ public class CatalogQueryService {
         return categories.findAllByOrderBySortOrderAscNameAsc();
     }
 
-    public Page<ProductView> listProducts(Pageable pageable) {
-        Page<Product> page = products.findByActiveTrue(pageable);
+    /** Active products matching the filter (each part optional). */
+    public Page<ProductView> listProducts(ProductFilter filter, Pageable pageable) {
+        Page<Product> page = products.findAll(ProductSpecifications.matching(filter), pageable);
         Map<UUID, AvailabilityLevel> levels = levelsOf(page.getContent());
         return page.map(p -> view(p, levels));
     }

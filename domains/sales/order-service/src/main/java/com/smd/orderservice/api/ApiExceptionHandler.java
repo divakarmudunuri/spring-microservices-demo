@@ -4,6 +4,7 @@ import com.smd.orderservice.checkout.CheckoutRejectedException;
 import com.smd.orderservice.checkout.IdempotencyKeyReusedException;
 import com.smd.orderservice.checkout.InvalidOrderException;
 import com.smd.orderservice.checkout.OrderInProgressException;
+import com.smd.orderservice.client.DependencyUnavailableException;
 import com.smd.orderservice.delivery.NotDeliveredException;
 import com.smd.orderservice.inventory.UnknownProductException;
 import com.smd.orderservice.order.OrderNotFoundException;
@@ -50,6 +51,15 @@ public class ApiExceptionHandler {
     @ExceptionHandler(OrderNotFoundException.class)
     ProblemDetail orderNotFound(OrderNotFoundException e) {
         return problem(HttpStatus.NOT_FOUND, "/problems/order-not-found", "Order not found", e);
+    }
+
+    /**
+     * A dependency failed before any order existed (e.g. cart-service while reading the cart for checkout).
+     * Failures after the order was recorded become a FAILED order instead (CheckoutRejectedException, with its id).
+     */
+    @ExceptionHandler(DependencyUnavailableException.class)
+    ProblemDetail dependencyUnavailable(DependencyUnavailableException e) {
+        return problem(HttpStatus.SERVICE_UNAVAILABLE, "/problems/dependency-unavailable", "Dependency unavailable", e);
     }
 
     @ExceptionHandler(NotDeliveredException.class)

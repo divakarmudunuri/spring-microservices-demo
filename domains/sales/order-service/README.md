@@ -104,4 +104,8 @@ Resource server for internal JWTs only (`security/SecurityConfig`); the customer
 | `GET /api/admin/inventory` | ADMIN | exact stock, names from product-service (batches of 100 in parallel; still answers without names if it's down) |
 | `POST /api/admin/inventory/{productId}/restock` `{quantity, note}` | ADMIN | one transaction: stock + `stock_movements` (`RESTOCK`, `performed_by`) + `INVENTORY_CHANGED` |
 
+## Checkout from the cart (phase 12)
+
+`POST /api/orders/checkout` (CUSTOMER, empty body): reads the customer's cart from cart-service (`client/cart`, relaying the JWT), then runs exactly the 6.1 flow with the cart's lines, storing `cart_id` on the order (`checkout/CheckoutFromCartUseCase`). An empty cart is recorded and rejected (`422 EMPTY_CART`). Without an `Idempotency-Key`, the key is `cart:<cartId>:v<version>`, so a double-click can't order the same cart contents twice. The cart is not changed here: cart-service empties it when it sees the committed `ORDER_CONFIRMED` (which carries the `cartId`), so a failed checkout leaves it untouched. cart-service unavailable → `503` before any order exists.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

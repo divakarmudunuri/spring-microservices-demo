@@ -64,6 +64,8 @@ flowchart TB
 | Processed event marker | `EVENT#<eventId>` | `processedAt`, `expiresAt` (7 days) |
 
 - GSI **`byOwner`** (`ownerUserId`) finds a customer's single cart. Guest carts have no `ownerUserId`, so they don't appear in the index (sparse index).
+- **Cart ids:** a guest cart id is a random UUID v4 (an unguessable bearer secret). A customer's cart id is derived from the user id (name-based UUID), so two concurrent "create my cart" requests write the same item and the conditional put (`attribute_not_exists(PK)`) lets only one win; GSI reads are eventually consistent, so the index alone can't prevent a duplicate. A customer cart is never reachable by its id, only through the customer's JWT.
+- **Merge** and **clearing after checkout** are single `TransactWriteItems`: merge = write the customer cart (version condition) + delete the guest cart (`attribute_exists`), so it can't apply twice; clearing = the `EVENT#<eventId>` marker (`attribute_not_exists`) + the cart's new contents or its deletion (version condition).
 - **TTL:** guest carts expire after 7 days of inactivity, customer carts after 30; every write pushes `expiresAt` forward.
 - **Optimistic locking:** every write is conditional on `version`.
 - **No prices stored:** only `productId` + `quantity`. Prices are always read live from product-service, so they can't go stale.

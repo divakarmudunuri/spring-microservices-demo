@@ -1,3 +1,12 @@
+spring:
+  kafka:
+    bootstrap-servers: kafka:29092
+
+cart:
+  dynamodb:
+    endpoint: http://dynamodb-local:8000
+    create-table: true
+
 eureka:
   client:
     service-url:

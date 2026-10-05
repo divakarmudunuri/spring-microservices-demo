@@ -2,6 +2,7 @@ plugins {
     id 'feign-conventions'
     id 'kafka-conventions'
     id 'dynamodb-conventions'
+    id 'security-conventions'
 }
 
 dependencies {

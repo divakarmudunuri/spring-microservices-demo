@@ -6,6 +6,8 @@ plugins {
 dependencies {
     implementation libs.spring.boot.starter.web
     implementation libs.spring.boot.starter.validation
+    implementation libs.spring.boot.starter.cache   // Spring Cache with Caffeine: the public catalog
+    implementation libs.caffeine
 
     implementation libs.bundles.postgres.jpa
     runtimeOnly libs.postgresql

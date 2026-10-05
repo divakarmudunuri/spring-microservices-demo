@@ -2,6 +2,33 @@ server:
   port: 8083
 
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: product-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # map every record to this service's own envelope class; never trust the producer's type headers
+        spring.json.value.default.type: com.smd.productservice.events.EventEnvelope
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.smd.productservice.events
+    producer:
+      # used only to publish failed records to the DLT
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 10000
+    listener:
+      ack-mode: record   # commit each offset after the listener's transaction committed
+  cache:
+    type: caffeine
+    cache-names: categories, productPages, productById, featured
+    # short TTL and a bounded size: stale for at most a minute even without an eviction
+    caffeine:
+      spec: maximumSize=1000,expireAfterWrite=60s
   mvc:
     problemdetails:
       enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
@@ -29,3 +56,12 @@ security:
   internal:
     # the internal issuer's public keys, from user-service by service name (Eureka)
     jwk-set-uri: http://user-service/.well-known/jwks.json
+
+storefront:
+  low-stock-threshold: 5   # at or below: LOW_STOCK
+
+kafka:
+  consumed-topics: inventory-events
+  topics:
+    partitions: 3
+    replicas: 1

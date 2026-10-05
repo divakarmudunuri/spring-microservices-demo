@@ -1,7 +1,10 @@
 plugins {
     id 'feign-conventions'
+    id 'security-conventions'
 }
 
 dependencies {
     implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
+    implementation libs.caffeine   // a 30 s cache of the anonymous home page
 }

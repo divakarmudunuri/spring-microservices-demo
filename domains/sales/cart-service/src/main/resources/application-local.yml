@@ -1,0 +1,15 @@
+cart:
+  dynamodb:
+    endpoint: http://localhost:8000   # DynamoDB Local (docker/docker-compose.yml)
+    create-table: true
+
+spring.cloud.openfeign.client.config.product-service.logger-level: basic
+
+management:
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.smd.cartservice.client: debug

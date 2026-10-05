@@ -72,6 +72,7 @@ public abstract class OrderServiceIntegrationTest {
         registry.add("spring.cloud.discovery.client.simple.instances.product-service[0].uri", DOWNSTREAM::baseUrl);
         registry.add("spring.cloud.discovery.client.simple.instances.shipping-service[0].uri", DOWNSTREAM::baseUrl);
         registry.add("spring.cloud.discovery.client.simple.instances.order-tracking-service[0].uri", DOWNSTREAM::baseUrl);
+        registry.add("spring.cloud.discovery.client.simple.instances.cart-service[0].uri", DOWNSTREAM::baseUrl);
     }
 
     @Autowired

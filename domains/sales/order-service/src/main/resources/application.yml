@@ -85,6 +85,10 @@ spring.cloud.openfeign:
         connect-timeout: 1000
         read-timeout: 2000
         logger-level: none
+      cart-service:
+        connect-timeout: 1000
+        read-timeout: 2000
+        logger-level: none
 
 composition:
   core-pool-size: 16
@@ -125,6 +129,8 @@ resilience4j:
         base-config: default
       trackingService:
         base-config: default
+      cartService:
+        base-config: default
   circuitbreaker:
     circuit-breaker-aspect-order: 2
     configs:
@@ -157,6 +163,8 @@ resilience4j:
         base-config: default
       trackingService:
         base-config: default
+      cartService:
+        base-config: default
   bulkhead:
     # No bulkhead-aspect-order here: Resilience4j 2.2 doesn't make it configurable. Its fixed order is
     # Ordered.LOWEST_PRECEDENCE, i.e. always the innermost aspect, which is what we want.
@@ -174,6 +182,8 @@ resilience4j:
       shippingService:
         base-config: default
       trackingService:
+        base-config: default
+      cartService:
         base-config: default
 
 management:

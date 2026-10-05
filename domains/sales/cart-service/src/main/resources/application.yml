@@ -7,6 +7,112 @@ spring:
       enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
   application:
     name: cart-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: cart-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # map every record to this service's own envelope class; never trust the producer's type headers
+        spring.json.value.default.type: com.smd.cartservice.events.EventEnvelope
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.smd.cartservice.events
+    producer:
+      # used only to publish failed records to the DLT
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 10000
+    listener:
+      ack-mode: record   # commit each offset only after the DynamoDB write succeeded
+
+# Resilience4j annotations sit on the adapter (client/product/ProductAdapter), so Feign's own circuit-breaker
+# wrapping stays off; and Resilience4j owns retries, so Spring Cloud LoadBalancer's retry is off too.
+spring.cloud.loadbalancer.retry.enabled: false
+spring.cloud.openfeign:
+  circuitbreaker:
+    enabled: false
+  httpclient:
+    hc5:
+      enabled: true
+    max-connections: 100
+    max-connections-per-route: 50
+  client:
+    config:
+      product-service:
+        connect-timeout: 1000
+        read-timeout: 2000
+        logger-level: none
+
+resilience4j:
+  retry:
+    retry-aspect-order: 1   # Retry( CircuitBreaker( Bulkhead( call ))); the bulkhead is always innermost
+    instances:
+      productService:
+        max-attempts: 3
+        wait-duration: 100ms
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        retry-exceptions:
+          - com.smd.cartservice.client.DownstreamServerException   # 5xx, 429
+          - feign.RetryableException                               # I/O errors, timeouts
+  circuitbreaker:
+    circuit-breaker-aspect-order: 2
+    instances:
+      productService:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.smd.cartservice.client.DownstreamServerException
+          - feign.RetryableException
+        ignore-exceptions:
+          - com.smd.cartservice.client.DownstreamClientException
+        register-health-indicator: true
+        allow-health-indicator-to-fail: false
+  bulkhead:
+    instances:
+      productService:
+        max-concurrent-calls: 20
+        max-wait-duration: 50ms
+
+cart:
+  max-lines: 50
+  max-quantity: 10
+  guest-ttl: 7d
+  customer-ttl: 30d
+  dynamodb:
+    table-name: carts
+    region: us-east-1
+    create-table: false
+    api-call-timeout: 2s
+    api-call-attempt-timeout: 700ms
+
+kafka:
+  consumed-topics: order-events
+  topics:
+    partitions: 3
+    replicas: 1
+
+security:
+  internal:
+    # the internal issuer's public keys, from user-service by service name (Eureka)
+    jwk-set-uri: http://user-service/.well-known/jwks.json
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
 
 eureka:
   client:
