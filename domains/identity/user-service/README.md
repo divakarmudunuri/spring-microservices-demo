@@ -13,4 +13,16 @@ Users and addresses. Provisions users on their first Google/Okta login (just-in-
 - `GET /.well-known/jwks.json` (internal)
 - `GET /api/users/me`, `PUT /api/users/me/address`, `GET /api/users/{id}`
 
-**Status:** not implemented yet. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.
+## Implemented so far (phase 3)
+
+- `GET /api/users/{id}`: profile, status and default address (`null` if none). Used by checkout and the order-details aggregator. Owner-or-admin check arrives in phase 11.
+- Chaos toggles (`local` only): `demo.chaos.latency-ms`, `demo.chaos.failure-rate`, changed at runtime:
+  ```bash
+  curl -X POST localhost:8082/internal/chaos -H 'Content-Type: application/json' -d '{"latencyMs": 800}'
+  curl localhost:8082/internal/chaos
+  ```
+  They affect `/api/**` only, never `/actuator/**` or `/internal/**`.
+
+Token exchange, JWKS, `/me` and the address endpoint come in phase 11.
+
+**Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

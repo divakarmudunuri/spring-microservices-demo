@@ -2,5 +2,15 @@ server:
   port: 8086
 
 spring:
+  mvc:
+    problemdetails:
+      enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
   application:
     name: order-tracking-service
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true

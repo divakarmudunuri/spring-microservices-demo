@@ -1,0 +1,6 @@
+eureka:
+  server:
+    # one local instance can't reach a quorum of peers; don't let self-preservation
+    # keep stopped services in the registry for minutes
+    enable-self-preservation: false
+    eviction-interval-timer-in-ms: 5000

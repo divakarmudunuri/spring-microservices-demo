@@ -1,3 +1,8 @@
 spring:
   datasource:
     url: jdbc:postgresql://postgres:5432/user_db
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://discovery-server:8761/eureka/}

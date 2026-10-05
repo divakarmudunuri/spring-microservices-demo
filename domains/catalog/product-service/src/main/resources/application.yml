@@ -2,6 +2,9 @@ server:
   port: 8083
 
 spring:
+  mvc:
+    problemdetails:
+      enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
   application:
     name: product-service
   datasource:
@@ -14,3 +17,10 @@ spring:
       ddl-auto: validate       # JPA maps to the Flyway schema, never the other way round
   flyway:
     locations: classpath:db/migration
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+  instance:
+    prefer-ip-address: true

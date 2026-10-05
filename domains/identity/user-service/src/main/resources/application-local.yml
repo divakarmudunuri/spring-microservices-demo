@@ -5,3 +5,9 @@ spring:
     # The seed is V1000 so it never collides with real schema migrations (V2, V3, ...).
     # On a local database that already has V1000, a new V2 is "out of order"; allow it here only.
     out-of-order: true
+
+demo:
+  chaos:
+    # starting values; change at runtime with POST /internal/chaos
+    latency-ms: 0
+    failure-rate: 0.0

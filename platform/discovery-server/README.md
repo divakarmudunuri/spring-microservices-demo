@@ -16,4 +16,12 @@ Eureka service registry. Every other backend service registers here and finds th
 - Self-registration disabled
 - Not exposed through nginx
 
-**Status:** not implemented yet. See `../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../data-model/`.
+## Run
+
+```bash
+./gradlew :discovery-server:bootRun --args='--spring.profiles.active=local'
+```
+
+In `local`, self-preservation is off and stopped instances are evicted within seconds.
+
+**Status:** implemented (phase 3). See `../../CLAUDE.md` for the full spec.

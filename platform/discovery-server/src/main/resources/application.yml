@@ -4,3 +4,11 @@ server:
 spring:
   application:
     name: discovery-server
+
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    # this is the registry itself: it doesn't register with, or fetch from, another Eureka
+    register-with-eureka: false
+    fetch-registry: false
