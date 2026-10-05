@@ -27,8 +27,8 @@ public class CheckoutFromCartUseCase {
     }
 
     /**
-     * @param idempotencyKey the client's key, or null: then it is derived from the cart's id and version, so a
-     *                       double-click can't create two orders from the same cart contents
+     * @param idempotencyKey the client's key, or null: then it is derived from the cart's id, creation time and
+     *                       version, so a double-click can't create two orders from the same cart contents
      */
     public Order checkout(UUID userId, String idempotencyKey) {
         Cart cart = carts.getMyCart();
@@ -36,7 +36,13 @@ public class CheckoutFromCartUseCase {
         return placeOrder.placeOrder(userId, key, cart.cartId(), cart.lines());
     }
 
+    /**
+     * The creation time matters: a customer's cart id never changes (it's derived from the user id), and cart-service
+     * deletes the cart once a checkout empties it, so the next cart starts again at version 1, 2, ... Without the
+     * creation time, a later checkout could hit an old order's key and silently get that old order back.
+     */
     static String derivedKey(Cart cart) {
-        return "cart:" + cart.cartId() + ":v" + cart.version();
+        String life = cart.createdAt() == null ? "" : ":" + cart.createdAt().toEpochMilli();
+        return "cart:" + cart.cartId() + life + ":v" + cart.version();
     }
 }

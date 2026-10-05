@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480" role="img" aria-label="Bamboo Cutting Board">
+<rect width="640" height="480" fill="#f6e6d8"/>
+<rect x="170" y="160" width="300" height="180" rx="26" fill="#e2b896" stroke="#9a5a2c" stroke-width="10"/><line x1="215" y1="170" x2="215" y2="330" stroke="#9a5a2c" stroke-width="4" opacity="0.5"/><line x1="265" y1="170" x2="265" y2="330" stroke="#9a5a2c" stroke-width="4" opacity="0.5"/><line x1="315" y1="170" x2="315" y2="330" stroke="#9a5a2c" stroke-width="4" opacity="0.5"/><line x1="365" y1="170" x2="365" y2="330" stroke="#9a5a2c" stroke-width="4" opacity="0.5"/><line x1="415" y1="170" x2="415" y2="330" stroke="#9a5a2c" stroke-width="4" opacity="0.5"/><circle cx="430" cy="200" r="14" fill="#9a5a2c"/>
+<text x="320" y="440" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#9a5a2c">Bamboo Cutting Board</text>
+</svg>

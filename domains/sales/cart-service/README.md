@@ -22,7 +22,7 @@ Guest and customer carts. A guest cart is identified by the `X-Cart-Id` header a
 | Endpoint | Who | Notes |
 |---|---|---|
 | `POST /api/cart` | guest | new cart: `201`, id in the body and in `X-Cart-Id` (customers: their own cart, `200`) |
-| `GET /api/cart` | guest (`X-Cart-Id`) or customer (JWT) | lines with the **current** name, picture, price, level and line totals (one batch call to product-service), subtotal; `degraded: true` without prices if product-service is down |
+| `GET /api/cart` | guest (`X-Cart-Id`) or customer (JWT) | lines with the **current** name, picture, price, level and line totals (one batch call to product-service), subtotal; `degraded: true` without prices if product-service is down; `createdAt` (order-service puts it in the idempotency key it derives at checkout) |
 | `POST /api/cart/items` `{productId, quantity}` | guest or customer | adds to the line; `409` out of stock, `404` unknown product, `422` beyond 10 of a product or 50 lines |
 | `PUT /api/cart/items/{productId}` `{quantity}` | guest or customer | `0` removes the line |
 | `DELETE /api/cart/items/{productId}`, `DELETE /api/cart` | guest or customer | |

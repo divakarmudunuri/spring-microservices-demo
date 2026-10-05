@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480" role="img" aria-label="27&quot; 4K Monitor">
+<rect width="640" height="480" fill="#dbe7f5"/>
+<rect x="160" y="120" width="320" height="200" rx="14" fill="#2d5f97"/><rect x="176" y="136" width="288" height="168" rx="6" fill="#9fbde0"/><rect x="300" y="320" width="40" height="40" fill="#2d5f97"/><rect x="250" y="356" width="140" height="14" rx="7" fill="#2d5f97"/>
+<text x="320" y="440" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#2d5f97">27" 4K Monitor</text>
+</svg>

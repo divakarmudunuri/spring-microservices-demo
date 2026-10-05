@@ -77,7 +77,8 @@ class CartApiTest extends CartIntegrationTest {
         UUID customer = UUID.randomUUID();
         String guestCart = newGuestCart();
 
-        String first = json(view(null, customer(customer)).andExpect(jsonPath("$.guest").value(false))).get("cartId").asText();
+        String first = json(view(null, customer(customer)).andExpect(jsonPath("$.guest").value(false))
+                .andExpect(jsonPath("$.createdAt").isNotEmpty())).get("cartId").asText();  // part of checkout's derived key
         String second = json(view(guestCart, customer(customer))).get("cartId").asText();
         String viaPost = json(mvc.perform(post("/api/cart").with(customer(customer))).andExpect(status().isOk())).get("cartId").asText();
 

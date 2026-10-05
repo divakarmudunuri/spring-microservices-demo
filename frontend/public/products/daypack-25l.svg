@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480" role="img" aria-label="Daypack 25L">
+<rect width="640" height="480" fill="#dcefe2"/>
+<rect x="230" y="150" width="180" height="220" rx="50" fill="#2f7a4d"/><rect x="260" y="250" width="120" height="90" rx="20" fill="#a3d3b3"/><path d="M280 150 q40 -50 80 0" stroke="#2f7a4d" stroke-width="14" fill="none"/>
+<text x="320" y="440" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#2f7a4d">Daypack 25L</text>
+</svg>

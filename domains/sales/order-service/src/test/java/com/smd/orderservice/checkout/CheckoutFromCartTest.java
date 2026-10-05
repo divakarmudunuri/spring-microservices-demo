@@ -14,6 +14,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.smd.orderservice.OrderServiceIntegrationTest;
+import java.time.Instant;
 import java.util.UUID;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +25,7 @@ import org.springframework.test.web.servlet.ResultActions;
 class CheckoutFromCartTest extends OrderServiceIntegrationTest {
 
     static final UUID CART_ID = UUID.fromString("7d0c5b1e-2f6a-4f3e-8a1b-5c9e2d4f6a70");
+    static final Instant CREATED = Instant.parse("2026-10-05T09:00:00.123Z");
 
     @Autowired
     MockMvc mvc;
@@ -60,7 +62,7 @@ class CheckoutFromCartTest extends OrderServiceIntegrationTest {
 
         assertThat(objectMapper.readTree(second).get("id")).isEqualTo(objectMapper.readTree(first).get("id"));
         assertThat(count("orders")).isOne();
-        assertThat(jdbc.sql("SELECT idempotency_key FROM orders").query(String.class).single()).isEqualTo("cart:" + CART_ID + ":v7");
+        assertThat(jdbc.sql("SELECT idempotency_key FROM orders").query(String.class).single()).isEqualTo("cart:" + CART_ID + ":" + CREATED.toEpochMilli() + ":v7");
     }
 
     @Test
@@ -68,6 +70,17 @@ class CheckoutFromCartTest extends OrderServiceIntegrationTest {
         stubCart(7, "{\"productId\":\"" + EARBUDS + "\",\"quantity\":1}");
         checkout(null).andExpect(status().isCreated());
         stubCart(8, "{\"productId\":\"" + CHARGER + "\",\"quantity\":1}");
+        checkout(null).andExpect(status().isCreated());
+
+        assertThat(count("orders")).isEqualTo(2);
+    }
+
+    @Test
+    void aRecreatedCartWithTheSameIdAndVersionIsANewOrder() throws Exception {
+        // a customer's cart id is derived from the user id, and an emptied cart is deleted: the next one starts over
+        stubCart(2, CREATED, "{\"productId\":\"" + EARBUDS + "\",\"quantity\":1}");
+        checkout(null).andExpect(status().isCreated());
+        stubCart(2, CREATED.plusSeconds(3600), "{\"productId\":\"" + CHARGER + "\",\"quantity\":1}");
         checkout(null).andExpect(status().isCreated());
 
         assertThat(count("orders")).isEqualTo(2);
@@ -130,8 +143,13 @@ class CheckoutFromCartTest extends OrderServiceIntegrationTest {
     }
 
     private static void stubCart(long version, String lines) {
+        stubCart(version, CREATED, lines);
+    }
+
+    private static void stubCart(long version, Instant createdAt, String lines) {
         DOWNSTREAM.stubFor(get(urlPathEqualTo("/api/cart")).willReturn(okJson("""
-                {"cartId":"%s","guest":false,"version":%d,"lines":[%s],"subtotal":0,"currency":"USD","degraded":false}"""
-                .formatted(CART_ID, version, lines))));
+                {"cartId":"%s","guest":false,"version":%d,"lines":[%s],"subtotal":0,"currency":"USD","degraded":false,
+                 "createdAt":"%s"}"""
+                .formatted(CART_ID, version, lines, createdAt))));
     }
 }

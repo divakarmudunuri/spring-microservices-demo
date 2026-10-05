@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 480" width="640" height="480" role="img" aria-label="USB-C Charger 65W">
+<rect width="640" height="480" fill="#dbe7f5"/>
+<rect x="250" y="140" width="140" height="170" rx="22" fill="#2d5f97"/><rect x="285" y="170" width="70" height="16" rx="8" fill="#9fbde0"/><rect x="285" y="200" width="70" height="16" rx="8" fill="#9fbde0"/><path d="M320 310 v60 q0 20 20 20 h60" stroke="#2d5f97" stroke-width="12" fill="none" stroke-linecap="round"/>
+<text x="320" y="440" text-anchor="middle" font-family="system-ui, sans-serif" font-size="26" font-weight="600" fill="#2d5f97">USB-C Charger 65W</text>
+</svg>

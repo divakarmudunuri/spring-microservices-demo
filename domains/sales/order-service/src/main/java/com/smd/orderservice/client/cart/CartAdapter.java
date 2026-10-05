@@ -29,7 +29,7 @@ public class CartAdapter {
     @Bulkhead(name = RESILIENCE)
     public Cart getMyCart() {
         CartDto cart = client.getMyCart();
-        return new Cart(cart.cartId(), cart.version(),
+        return new Cart(cart.cartId(), cart.version(), cart.createdAt(),
                 cart.lines().stream().map(l -> new OrderLine(l.productId(), l.quantity())).toList());
     }
 

@@ -242,6 +242,7 @@ public class CartService {
         }).toList();
         BigDecimal subtotal = degraded ? null
                 : lines.stream().map(CartView.Line::lineTotal).filter(t -> t != null).reduce(BigDecimal.ZERO, BigDecimal::add);
-        return new CartView(cart.getCartId(), cart.getOwnerUserId() == null, cart.getVersion(), lines, subtotal, "USD", degraded);
+        return new CartView(cart.getCartId(), cart.getOwnerUserId() == null, cart.getVersion(), lines, subtotal, "USD", degraded,
+                cart.getCreatedAt());
     }
 }
