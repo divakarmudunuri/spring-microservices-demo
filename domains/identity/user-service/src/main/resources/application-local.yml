@@ -1,0 +1,7 @@
+spring:
+  flyway:
+    # sample data (data-model/sql/seed) only in the local profile
+    locations: classpath:db/migration,classpath:db/seed
+    # The seed is V1000 so it never collides with real schema migrations (V2, V3, ...).
+    # On a local database that already has V1000, a new V2 is "out of order"; allow it here only.
+    out-of-order: true

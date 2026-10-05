@@ -4,3 +4,13 @@ server:
 spring:
   application:
     name: user-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/user_db
+    username: user_svc
+    password: ${USER_DB_PASSWORD:user_local_pw}   # local-only default (data-model/sql/00-create-databases.sql)
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate       # JPA maps to the Flyway schema, never the other way round
+  flyway:
+    locations: classpath:db/migration

@@ -40,6 +40,12 @@ feign-hc5 = { module = "io.github.openfeign:feign-hc5" }
 feign-micrometer = { module = "io.github.openfeign:feign-micrometer" }
 resilience4j-spring-boot3 = { module = "io.github.resilience4j:resilience4j-spring-boot3" }
 
+# Persistence (Postgres services)
+spring-boot-starter-data-jpa = { module = "org.springframework.boot:spring-boot-starter-data-jpa" }
+flyway-core = { module = "org.flywaydb:flyway-core" }
+flyway-database-postgresql = { module = "org.flywaydb:flyway-database-postgresql" }
+postgresql = { module = "org.postgresql:postgresql" }
+
 # Kafka
 spring-kafka = { module = "org.springframework.kafka:spring-kafka" }
 spring-kafka-test = { module = "org.springframework.kafka:spring-kafka-test" }
@@ -54,5 +60,10 @@ spring-security-test = { module = "org.springframework.security:spring-security-
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 testcontainers-junit-jupiter = { module = "org.testcontainers:junit-jupiter" }
 testcontainers-kafka = { module = "org.testcontainers:kafka" }
+testcontainers-postgresql = { module = "org.testcontainers:postgresql" }
 awaitility = { module = "org.awaitility:awaitility" }
 wiremock-standalone = { module = "org.wiremock:wiremock-standalone", version.ref = "wiremock" }
+
+[bundles]
+# JPA + Flyway for the services that own a Postgres database
+postgres-jpa = ["spring-boot-starter-data-jpa", "flyway-core", "flyway-database-postgresql"]

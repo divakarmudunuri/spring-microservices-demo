@@ -1,0 +1,10 @@
+# Dashboard JSON files placed in this folder are loaded on startup.
+# The project dashboard is added in phase 15 (observability).
+apiVersion: 1
+
+providers:
+  - name: smd
+    folder: spring-microservices-demo
+    type: file
+    options:
+      path: /etc/grafana/provisioning/dashboards

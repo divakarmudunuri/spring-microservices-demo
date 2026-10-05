@@ -114,7 +114,7 @@ These scripts were run against PostgreSQL 16 while writing this folder: all sche
 |---|---|
 | `sql/00-create-databases.sql` | mounted into the Postgres container's `/docker-entrypoint-initdb.d/` |
 | `sql/0N-<db>.sql` | `<service>/src/main/resources/db/migration/V1__init.sql` (copied verbatim) |
-| `sql/seed/0N-<db>-seed.sql` | `<service>/src/main/resources/db/seed/V2__seed.sql` (`local` profile only) |
+| `sql/seed/0N-<db>-seed.sql` | `<service>/src/main/resources/db/seed/V1000__seed.sql` (`local` profile only; version 1000 so it never collides with schema migrations) |
 | `sql/tests/*.sql` | kept here; the services have their own Testcontainers tests |
 | `dynamodb/*.table.json` | the table initializer in order-tracking-service / cart-service creates the same tables |
 

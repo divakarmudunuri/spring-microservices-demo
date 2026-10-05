@@ -4,3 +4,13 @@ server:
 spring:
   application:
     name: shipping-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shipping_db
+    username: shipping_svc
+    password: ${SHIPPING_DB_PASSWORD:shipping_local_pw}   # local-only default (data-model/sql/00-create-databases.sql)
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate       # JPA maps to the Flyway schema, never the other way round
+  flyway:
+    locations: classpath:db/migration

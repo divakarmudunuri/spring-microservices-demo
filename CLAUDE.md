@@ -178,7 +178,7 @@ How it maps into the code:
 
 - `docker/postgres/init/` mounts `data-model/sql/00-create-databases.sql`.
 - `data-model/sql/0N-<db>.sql` is copied **verbatim** to `<service>/src/main/resources/db/migration/V1__init.sql`.
-- `data-model/sql/seed/0N-<db>-seed.sql` → `<service>/src/main/resources/db/seed/V2__seed.sql`, applied only in the `local` profile (`classpath:db/seed` added to `spring.flyway.locations` in `application-local.yml`).
+- `data-model/sql/seed/0N-<db>-seed.sql` → `<service>/src/main/resources/db/seed/V1000__seed.sql`, applied only in the `local` profile (`classpath:db/seed` added to `spring.flyway.locations` in `application-local.yml`). Version 1000 keeps the seed clear of real schema migrations (`V2`, `V3`, …); `application-local.yml` also sets `spring.flyway.out-of-order: true` so a new `V2` still applies to a local database that already has the seed.
 - JPA maps to the schema, never the other way round: `spring.jpa.hibernate.ddl-auto=validate`.
 - After a migration is committed, never edit it. Add `V<n>__*.sql` in the service **and** update `data-model/` (schema file, doc, diagram) in the same change.
 
