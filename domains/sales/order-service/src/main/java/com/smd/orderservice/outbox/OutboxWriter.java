@@ -22,11 +22,13 @@ public class OutboxWriter {
     private final JdbcClient jdbc;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final OutboxTracing tracing;
 
-    public OutboxWriter(JdbcClient jdbc, ObjectMapper objectMapper, Clock clock) {
+    public OutboxWriter(JdbcClient jdbc, ObjectMapper objectMapper, Clock clock, OutboxTracing tracing) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.tracing = tracing;
     }
 
     /** An event on {@code order-events}: the Kafka key is the order id. */
@@ -48,15 +50,16 @@ public class OutboxWriter {
         // so every event of one transaction would get the same value and the relay (which publishes in
         // created_at order) couldn't keep them in the order they were written.
         jdbc.sql("""
-                        INSERT INTO outbox_event (id, topic, aggregate_id, event_type, payload, created_at)
-                        VALUES (:id, :topic, :aggregateId, :eventType, CAST(:payload AS jsonb), clock_timestamp())""")
+                        INSERT INTO outbox_event (id, topic, aggregate_id, event_type, payload, trace_parent, created_at)
+                        VALUES (:id, :topic, :aggregateId, :eventType, CAST(:payload AS jsonb), :traceParent,
+                                clock_timestamp())""")
                 .param("id", envelope.eventId())
                 .param("topic", topic)
                 .param("aggregateId", aggregateId)
                 .param("eventType", envelope.eventType())
                 .param("payload", toJson(envelope))
+                .param("traceParent", tracing.traceParentFor(aggregateId))   // so the relay can continue this trace
                 .update();
-        // TODO(phase-15): store the current W3C traceparent in trace_parent so the relay can continue the trace
     }
 
     private String toJson(EventEnvelope envelope) {

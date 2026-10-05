@@ -1,5 +1,5 @@
 # Dashboard JSON files placed in this folder are loaded on startup.
-# The project dashboard is added in phase 15 (observability).
+# smd-overview.json: the project dashboard (CLAUDE.md 6.10).
 apiVersion: 1
 
 providers:

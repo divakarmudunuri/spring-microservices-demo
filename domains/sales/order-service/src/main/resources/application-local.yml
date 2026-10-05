@@ -37,3 +37,7 @@ management:
       exposure:
         # local only: inspect circuit breakers, retries and bulkheads at runtime
         include: health, info, metrics, prometheus, circuitbreakers, circuitbreakerevents, retries, bulkheads
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

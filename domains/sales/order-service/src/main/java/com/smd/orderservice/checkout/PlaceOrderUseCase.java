@@ -14,6 +14,8 @@ import com.smd.orderservice.order.OrderStatus;
 import com.smd.orderservice.order.RejectionReason;
 import com.smd.orderservice.order.ShippingAddress;
 import com.smd.orderservice.wallet.InsufficientFundsException;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.Timer;
 import java.math.BigDecimal;
 import java.util.HashSet;
 import java.util.List;
@@ -24,6 +26,7 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.slf4j.MDC;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 
@@ -52,10 +55,11 @@ public class PlaceOrderUseCase {
     private final UserAdapter users;
     private final ProductAdapter products;
     private final ParallelCalls parallelCalls;
+    private final MeterRegistry meters;
 
     public PlaceOrderUseCase(OrderRepository orders, OrderInitiationService initiation, CheckoutService checkout,
                              OrderRejectionService rejection, UserAdapter users, ProductAdapter products,
-                             ParallelCalls parallelCalls) {
+                             ParallelCalls parallelCalls, MeterRegistry meters) {
         this.orders = orders;
         this.initiation = initiation;
         this.checkout = checkout;
@@ -63,6 +67,7 @@ public class PlaceOrderUseCase {
         this.users = users;
         this.products = products;
         this.parallelCalls = parallelCalls;
+        this.meters = meters;
     }
 
     /**
@@ -70,6 +75,27 @@ public class PlaceOrderUseCase {
      * @throws CheckoutRejectedException the order was recorded as REJECTED or FAILED
      */
     public Order placeOrder(UUID userId, String idempotencyKey, UUID cartId, List<OrderLine> lines) {
+        // metrics (CLAUDE.md 6.10): checkout.attempts and checkout.duration, both tagged with the outcome
+        Timer.Sample sample = Timer.start(meters);
+        String outcome = "error";
+        try {
+            Order order = place(userId, idempotencyKey, cartId, lines);
+            outcome = "confirmed";
+            return order;
+        } catch (CheckoutRejectedException e) {
+            outcome = e.reason().name().toLowerCase();
+            throw e;
+        } catch (InvalidOrderException | IdempotencyKeyReusedException | OrderInProgressException e) {
+            outcome = "invalid_request";
+            throw e;
+        } finally {
+            meters.counter("checkout.attempts", "outcome", outcome).increment();
+            sample.stop(meters.timer("checkout.duration", "outcome", outcome));
+            MDC.remove("orderId");
+        }
+    }
+
+    private Order place(UUID userId, String idempotencyKey, UUID cartId, List<OrderLine> lines) {
         requireDistinctProducts(lines);
 
         // 1. idempotency
@@ -87,6 +113,7 @@ public class PlaceOrderUseCase {
             return replay(orders.findByIdempotencyKey(idempotencyKey).orElseThrow(() -> e), userId);
         }
         UUID orderId = order.getId();
+        MDC.put("orderId", orderId.toString());   // every log line of this checkout says which order it is
         if (lines.isEmpty()) {
             // only possible from a cart (POST /api/orders validates its items): recorded, then rejected
             throw rejected(orderId, RejectionReason.EMPTY_CART, "The cart is empty");

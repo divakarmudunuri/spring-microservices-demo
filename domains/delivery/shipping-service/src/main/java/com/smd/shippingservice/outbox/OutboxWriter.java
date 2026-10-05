@@ -23,13 +23,15 @@ public class OutboxWriter {
     private final JdbcClient jdbc;
     private final ObjectMapper objectMapper;
     private final Clock clock;
+    private final OutboxTracing tracing;
     private final String source;
 
-    public OutboxWriter(JdbcClient jdbc, ObjectMapper objectMapper, Clock clock,
+    public OutboxWriter(JdbcClient jdbc, ObjectMapper objectMapper, Clock clock, OutboxTracing tracing,
                         @Value("${spring.application.name}") String source) {
         this.jdbc = jdbc;
         this.objectMapper = objectMapper;
         this.clock = clock;
+        this.tracing = tracing;
         this.source = source;
     }
 
@@ -40,15 +42,16 @@ public class OutboxWriter {
                 source, ENVELOPE_VERSION, objectMapper.valueToTree(payload));
         // created_at = clock_timestamp(): now() is the transaction start, so events of one transaction would tie
         jdbc.sql("""
-                        INSERT INTO outbox_event (id, topic, aggregate_id, event_type, payload, created_at)
-                        VALUES (:id, :topic, :aggregateId, :eventType, CAST(:payload AS jsonb), clock_timestamp())""")
+                        INSERT INTO outbox_event (id, topic, aggregate_id, event_type, payload, trace_parent, created_at)
+                        VALUES (:id, :topic, :aggregateId, :eventType, CAST(:payload AS jsonb), :traceParent,
+                                clock_timestamp())""")
                 .param("id", envelope.eventId())
                 .param("topic", topic)
                 .param("aggregateId", orderId)
                 .param("eventType", eventType)
                 .param("payload", toJson(envelope))
+                .param("traceParent", tracing.traceParentFor(orderId))   // so the relay can continue this trace
                 .update();
-        // TODO(phase-15): store the current W3C traceparent in trace_parent
     }
 
     private String toJson(EventEnvelope envelope) {

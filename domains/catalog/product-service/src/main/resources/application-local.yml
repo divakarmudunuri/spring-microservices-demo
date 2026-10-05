@@ -11,3 +11,7 @@ demo:
     # starting values; change at runtime with POST /internal/chaos
     latency-ms: 0
     failure-rate: 0.0
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

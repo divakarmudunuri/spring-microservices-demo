@@ -1,3 +1,5 @@
 eureka:
   instance:
     hostname: discovery-server
+
+management.otlp.tracing.endpoint: ${OTLP_TRACING_ENDPOINT:http://jaeger:4318/v1/traces}

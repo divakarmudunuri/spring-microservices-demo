@@ -4,3 +4,7 @@ eureka:
     # keep stopped services in the registry for minutes
     enable-self-preservation: false
     eviction-interval-timer-in-ms: 5000
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

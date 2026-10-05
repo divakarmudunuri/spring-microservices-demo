@@ -3,6 +3,8 @@ package com.smd.shippingservice.outbox;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.core.instrument.Gauge;
 import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.tracing.Span;
+import io.micrometer.tracing.Tracer;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.UUID;
@@ -41,14 +43,16 @@ public class OutboxRelay {
     private final KafkaTemplate<String, String> kafka;
     private final TransactionTemplate transaction;
     private final OutboxRelayProperties properties;
+    private final OutboxTracing tracing;
     private final Counter publishFailures;
 
     public OutboxRelay(JdbcClient jdbc, KafkaTemplate<String, String> kafka, TransactionTemplate transaction,
-                       OutboxRelayProperties properties, MeterRegistry meters) {
+                       OutboxRelayProperties properties, OutboxTracing tracing, MeterRegistry meters) {
         this.jdbc = jdbc;
         this.kafka = kafka;
         this.transaction = transaction;
         this.properties = properties;
+        this.tracing = tracing;
         this.publishFailures = Counter.builder("outbox.publish.failures")
                 .description("Outbox rows that could not be sent to Kafka").register(meters);
         Gauge.builder("outbox.pending", this, OutboxRelay::pendingCount)
@@ -74,7 +78,7 @@ public class OutboxRelay {
     public int publishBatch() {
         Integer published = transaction.execute(status -> {
             List<OutboxRow> rows = jdbc.sql("""
-                            SELECT id, topic, aggregate_id, event_type, payload::text AS payload
+                            SELECT id, topic, aggregate_id, event_type, payload::text AS payload, trace_parent
                               FROM outbox_event
                              WHERE published_at IS NULL
                              ORDER BY created_at
@@ -107,14 +111,27 @@ public class OutboxRelay {
         ProducerRecord<String, String> record =
                 new ProducerRecord<>(row.topic(), row.aggregateId().toString(), row.payload());
         record.headers().add("eventType", row.eventType().getBytes(StandardCharsets.UTF_8));
-        // TODO(phase-15): continue the trace stored in outbox_event.trace_parent
-        kafka.send(record).get(properties.sendTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        // continue the trace of the request (or event) that wrote this row; the Kafka producer observation
+        // becomes a child of this span and passes the trace on in the record headers
+        Span span = tracing.startPublishSpan(row.traceParent(), row.eventType());
+        try (Tracer.SpanInScope ignored = tracing.inScope(span)) {
+            kafka.send(record).get(properties.sendTimeout().toMillis(), TimeUnit.MILLISECONDS);
+        } catch (Exception e) {
+            if (span != null) {
+                span.error(e);
+            }
+            throw e;
+        } finally {
+            if (span != null) {
+                span.end();
+            }
+        }
     }
 
     private double pendingCount() {
         return jdbc.sql("SELECT count(*) FROM outbox_event WHERE published_at IS NULL").query(Long.class).single();
     }
 
-    record OutboxRow(UUID id, String topic, UUID aggregateId, String eventType, String payload) {
+    record OutboxRow(UUID id, String topic, UUID aggregateId, String eventType, String payload, String traceParent) {
     }
 }

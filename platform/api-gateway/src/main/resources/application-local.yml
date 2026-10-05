@@ -19,3 +19,7 @@ security:
     - { issuer: "http://localhost:8099/dev-customer", jwk-set-uri: "http://localhost:8099/dev-customer/jwks", audience: dev-client,    role: CUSTOMER }
     - { issuer: "http://dev-idp:8080/dev-admin",      jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }
     - { issuer: "http://localhost:8099/dev-admin",    jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

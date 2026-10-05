@@ -4,3 +4,7 @@ demo:
     step-delay: 2s
     failure-rate: 0.0
     poll-interval: 500ms
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

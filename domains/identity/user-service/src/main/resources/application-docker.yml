@@ -6,3 +6,5 @@ eureka:
   client:
     service-url:
       defaultZone: ${EUREKA_URL:http://discovery-server:8761/eureka/}
+
+management.otlp.tracing.endpoint: ${OTLP_TRACING_ENDPOINT:http://jaeger:4318/v1/traces}

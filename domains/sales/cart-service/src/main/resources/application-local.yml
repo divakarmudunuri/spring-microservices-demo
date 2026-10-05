@@ -13,3 +13,7 @@ management:
 logging:
   level:
     com.smd.cartservice.client: debug
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""

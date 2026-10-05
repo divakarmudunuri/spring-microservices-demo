@@ -27,6 +27,9 @@ class OutboxRelayFailureTest extends OrderServiceIntegrationTest {
     @Autowired
     TransactionTemplate transaction;
 
+    @Autowired
+    OutboxTracing tracing;
+
     @Test
     @SuppressWarnings("unchecked")
     void firstFailureStopsTheBatch() {
@@ -40,7 +43,7 @@ class OutboxRelayFailureTest extends OrderServiceIntegrationTest {
                 .thenReturn(CompletableFuture.<SendResult<String, String>>failedFuture(new RuntimeException("broker down")));
         var meters = new SimpleMeterRegistry();
         var relay = new OutboxRelay(jdbc, brokenKafka, transaction,
-                new OutboxRelayProperties(false, Duration.ofSeconds(1), 100, Duration.ofSeconds(1)), meters);
+                new OutboxRelayProperties(false, Duration.ofSeconds(1), 100, Duration.ofSeconds(1)), tracing, meters);
 
         assertThat(relay.publishBatch()).isZero();
 

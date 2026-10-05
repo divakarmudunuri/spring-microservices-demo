@@ -17,4 +17,6 @@ tasks.withType(JavaCompile).configureEach {
 
 tasks.withType(Test).configureEach {
     useJUnitPlatform()
+    // tests never depend on Jaeger running: spans are still created (and asserted), just not exported
+    systemProperty 'management.otlp.tracing.export.enabled', 'false'
 }

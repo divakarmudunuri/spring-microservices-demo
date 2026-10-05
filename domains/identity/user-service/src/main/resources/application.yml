@@ -42,3 +42,24 @@ security:
     issuer-uri: ${OKTA_ISSUER_URI:}           # https://<OKTA_DOMAIN>/oauth2/default
     audience: api://default
     admin-group: smd-admins
+
+# --- Observability (CLAUDE.md 6.10) ---------------------------------------------------------------
+# Dotted keys, so this section merges with any nested `management:` / `spring:` / `logging:` blocks above.
+management.endpoints.web.exposure.include: health, info, metrics, prometheus
+# traces: OTLP to Jaeger. 10% sampling by default; the local profile samples everything
+management.tracing.sampling.probability: ${TRACING_SAMPLING_PROBABILITY:0.1}
+management.otlp.tracing.endpoint: ${OTLP_TRACING_ENDPOINT:http://localhost:4318/v1/traces}
+# no spans for the security filter chain or @Scheduled pollers (outbox relay, simulators): noise in Jaeger
+management.observations.enable.spring.security: false
+management.observations.enable.tasks.scheduled: false
+# metrics: every series says which service it came from; histograms for p95/p99 latency in Grafana
+management.metrics.tags.application: ${spring.application.name}
+management.metrics.distribution.percentiles-histogram.http.server.requests: true
+# /actuator/health/readiness: dependencies this instance needs to serve traffic (liveness stays separate)
+management.endpoint.health.probes.enabled: true
+management.endpoint.health.group.readiness.include: readinessState, db
+# logs: trace id, span id, correlation id and (where known) order id on every line
+logging.include-application-name: false   # it's the first field of the correlation pattern below
+logging.pattern.correlation: "[${spring.application.name:},%X{traceId:-},%X{spanId:-},%X{correlationId:-},%X{orderId:-}] "
+# structured JSON (Elastic Common Schema, MDC fields included) everywhere except local
+logging.structured.format.console: ecs

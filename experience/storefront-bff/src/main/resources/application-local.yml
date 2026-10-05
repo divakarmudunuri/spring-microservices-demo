@@ -3,3 +3,7 @@ logging:
     # total time of each page vs. each call's time
     com.smd.storefrontbff.storefront: debug
     com.smd.storefrontbff.composition: debug
+
+# --- Observability: every trace, readable text logs
+management.tracing.sampling.probability: 1.0
+logging.structured.format.console: ""
