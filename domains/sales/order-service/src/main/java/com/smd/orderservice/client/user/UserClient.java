@@ -9,7 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
  * Resolved through Eureka + Spring Cloud LoadBalancer: no URL here. Package-private, like its DTOs:
  * only {@link UserAdapter} can use it, so downstream DTOs never leak into the rest of the service.
  */
-@FeignClient(name = "user-service")
+@FeignClient(name = "user-service", configuration = UserClientConfig.class)
 interface UserClient {
 
     @GetMapping("/api/users/{id}")

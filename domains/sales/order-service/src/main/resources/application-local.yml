@@ -19,3 +19,13 @@ logging:
     # elapsed time of each parallel call and of the whole fan-out
     com.smd.orderservice.composition: debug
     com.smd.orderservice.checkout: debug
+
+management:
+  endpoint:
+    health:
+      show-details: always   # includes circuit-breaker states
+  endpoints:
+    web:
+      exposure:
+        # local only: inspect circuit breakers, retries and bulkheads at runtime
+        include: health, info, metrics, prometheus, circuitbreakers, circuitbreakerevents, retries, bulkheads

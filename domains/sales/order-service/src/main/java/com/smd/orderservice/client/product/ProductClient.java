@@ -11,7 +11,7 @@ import org.springframework.web.bind.annotation.RequestParam;
  * Resolved through Eureka + Spring Cloud LoadBalancer: no URL here. Package-private, like its DTOs:
  * only {@link ProductAdapter} can use it, so downstream DTOs never leak into the rest of the service.
  */
-@FeignClient(name = "product-service")
+@FeignClient(name = "product-service", configuration = ProductClientConfig.class)
 interface ProductClient {
 
     /** Batch lookup; unknown or inactive ids are simply missing from the result. */

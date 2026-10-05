@@ -7,6 +7,8 @@ import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
+import io.github.resilience4j.circuitbreaker.CircuitBreaker;
+import io.github.resilience4j.circuitbreaker.CircuitBreakerRegistry;
 import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
@@ -64,6 +66,9 @@ public abstract class OrderServiceIntegrationTest {
     @Autowired
     DataSource dataSource;
 
+    @Autowired
+    CircuitBreakerRegistry circuitBreakerRegistry;
+
     @BeforeEach
     void resetDatabaseAndStubs() {
         jdbc.sql("""
@@ -72,6 +77,8 @@ public abstract class OrderServiceIntegrationTest {
         new ResourceDatabasePopulator(new ClassPathResource("db/seed/V1000__seed.sql")).execute(dataSource);
 
         DOWNSTREAM.resetAll();
+        // tests share one Spring context: don't let one test's failures open a circuit for the next
+        circuitBreakerRegistry.getAllCircuitBreakers().forEach(CircuitBreaker::reset);
         stubUser(CUSTOMER, "ACTIVE", true);
         DOWNSTREAM.stubFor(get(urlPathEqualTo("/api/products")).willReturn(okJson(PRODUCTS_JSON)));
     }

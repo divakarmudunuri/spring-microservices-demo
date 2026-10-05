@@ -1,15 +1,24 @@
 package com.smd.orderservice.client.user;
 
-import com.smd.orderservice.client.DependencyUnavailableException;
+import com.smd.orderservice.client.DownstreamErrors;
 import com.smd.orderservice.order.ShippingAddress;
-import feign.FeignException;
+import io.github.resilience4j.bulkhead.annotation.Bulkhead;
+import io.github.resilience4j.circuitbreaker.annotation.CircuitBreaker;
+import io.github.resilience4j.retry.annotation.Retry;
 import java.util.Optional;
 import java.util.UUID;
 import org.springframework.stereotype.Component;
 
-/** The only way the rest of order-service talks to user-service. Maps its DTOs to domain types. */
+/**
+ * The only way the rest of order-service talks to user-service. Applies resilience and maps DTOs to
+ * domain types. The Resilience4j annotations live here, not on the Feign interface
+ * ({@code spring.cloud.openfeign.circuitbreaker.enabled=false}), so each call is wrapped exactly once:
+ * Retry( CircuitBreaker( Bulkhead( call ))) — the order is set in application.yml.
+ */
 @Component
 public class UserAdapter {
+
+    static final String RESILIENCE = "userService";
 
     private final UserClient client;
 
@@ -17,15 +26,20 @@ public class UserAdapter {
         this.client = client;
     }
 
-    // TODO(phase-5): Resilience4j (@Retry, @CircuitBreaker, @Bulkhead) and an ErrorDecoder replace the catch blocks
+    /**
+     * @throws CustomerNotFoundException the user doesn't exist (404)
+     * @throws com.smd.orderservice.client.DependencyUnavailableException anything else went wrong
+     */
+    @Retry(name = RESILIENCE, fallbackMethod = "translateFailure")
+    @CircuitBreaker(name = RESILIENCE)
+    @Bulkhead(name = RESILIENCE)
     public Customer getCustomer(UUID userId) {
-        try {
-            return toCustomer(client.getUser(userId));
-        } catch (FeignException.NotFound e) {
-            throw new CustomerNotFoundException(userId);
-        } catch (FeignException e) {
-            throw new DependencyUnavailableException("user-service", e);
-        }
+        return toCustomer(client.getUser(userId));
+    }
+
+    // called by Resilience4j after the last attempt failed; no fallback value, see DownstreamErrors.translate
+    private Customer translateFailure(UUID userId, Throwable failure) {
+        throw DownstreamErrors.translate("user-service", failure, CustomerNotFoundException.class);
     }
 
     private static Customer toCustomer(UserDto dto) {

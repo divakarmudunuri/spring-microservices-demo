@@ -1,10 +1,9 @@
 package com.smd.orderservice.client.user;
 
-import java.util.UUID;
-
+/** user-service answered 404. Not retried, ignored by the circuit breaker. */
 public class CustomerNotFoundException extends RuntimeException {
 
-    public CustomerNotFoundException(UUID id) {
-        super("User " + id + " not found");
+    public CustomerNotFoundException(String message) {
+        super(message);
     }
 }

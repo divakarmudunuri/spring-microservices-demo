@@ -34,4 +34,19 @@ Checkout bounded context: orders, inventory, wallets, and payments in one databa
 
 Try the parallel lookups with the chaos toggles (user-service +800 ms, product-service +600 ms): the checkout takes about 0.85 s, not 1.4 s, and the `local` log shows each call's time and the total.
 
+## Resilience (phase 5)
+
+Every Feign call goes through its adapter (`client/user/UserAdapter`, `client/product/ProductAdapter`), which applies, from the outside in: **Retry → CircuitBreaker → Bulkhead → call**. Config: `resilience4j.*` in `application.yml`; instances `userService`, `productService`.
+
+| What | Setting |
+|---|---|
+| Timeouts | Feign connect 1 s / read 2 s per client, plus a 5 s overall deadline per parallel call (`composition.deadline`) |
+| Retry | 3 attempts, exponential backoff with jitter (~100 ms, ~200 ms); only 5xx/429 (`DownstreamServerException`) and I/O errors/timeouts (`feign.RetryableException`), never a 4xx |
+| Circuit breaker | last 20 calls, at least 10; opens at 50 % failures (or 80 % slower than 1.5 s); 10 s open, then 3 trial calls |
+| Bulkhead | at most 10 concurrent calls per downstream service |
+| Error decoders | `UserErrorDecoder`, `ProductErrorDecoder`: 404 → domain exception (user) / client error (product batch), 4xx → not retried, 5xx → retried |
+| Fallback | none for checkout lookups (they must fail); `DownstreamErrors.translate` only turns infrastructure errors into `DependencyUnavailableException` (503) |
+
+Watch it (`local` profile): `curl localhost:8081/actuator/circuitbreakers`, `/actuator/health` (shows each breaker; an open one never makes the service `DOWN`), `/actuator/retries`, `/actuator/bulkheads`. Make product-service fail with `curl -X POST localhost:8083/internal/chaos -H 'Content-Type: application/json' -d '{"failureRate":1.0}'`: the first orders take ~0.3 s (three attempts each), then the circuit opens and orders fail in ~20 ms without calling product-service.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

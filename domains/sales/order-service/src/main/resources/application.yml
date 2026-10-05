@@ -25,6 +25,10 @@ eureka:
   instance:
     prefer-ip-address: true
 
+# Spring Cloud LoadBalancer would retry GETs on I/O errors by itself (once more, on another instance).
+# Resilience4j owns retries here; with both on, every attempt was silently doubled.
+spring.cloud.loadbalancer.retry.enabled: false
+
 spring.cloud.openfeign:
   # Resilience4j annotations sit on the adapter methods (phase 5), so Feign's own circuit-breaker
   # wrapping stays off; otherwise every call would be wrapped twice.
@@ -39,7 +43,7 @@ spring.cloud.openfeign:
   client:
     config:
       # No client uses Feign's defaults. Feign's own Retryer stays at its default, NEVER_RETRY:
-      # retries belong to Resilience4j (phase 5).
+      # retries belong to Resilience4j (below).
       user-service:
         connect-timeout: 1000
         read-timeout: 2000
@@ -53,5 +57,85 @@ composition:
   core-pool-size: 16
   max-pool-size: 32
   queue-capacity: 100
-  # overall limit per parallel call; must exceed connect + read timeout of the slowest client
-  deadline: 4s
+  # Overall limit per parallel call, on top of the Feign timeouts. It caps retries too: a slow service
+  # (2 s read timeout per attempt) gets about two attempts before the deadline ends the call.
+  deadline: 5s
+
+# Resilience4j on the Feign adapters (CLAUDE.md 6.9). Instance names match the downstream service.
+# TimeLimiter is not used: it only works on async (CompletionStage) methods, and our Feign calls are
+# blocking. Timeouts come from Feign (connect/read) and the composition deadline instead.
+resilience4j:
+  retry:
+    # Aspect order: lower runs first (outermost). Retry( CircuitBreaker( Bulkhead( call ))):
+    # every attempt passes through the circuit breaker, so failed attempts open it, and an open
+    # circuit (CallNotPermittedException) is not retried.
+    retry-aspect-order: 1
+    configs:
+      default:
+        max-attempts: 3
+        wait-duration: 100ms
+        # exponential backoff with jitter: ~100 ms, ~200 ms, each randomized ±50 %
+        enable-exponential-backoff: true
+        exponential-backoff-multiplier: 2
+        enable-randomized-wait: true
+        randomized-wait-factor: 0.5
+        # Only these are retried (all current Feign calls are idempotent GETs). Never a 4xx.
+        retry-exceptions:
+          - com.smd.orderservice.client.DownstreamServerException   # 5xx, 429
+          - feign.RetryableException                                # I/O errors, timeouts
+    instances:
+      userService:
+        base-config: default
+      productService:
+        base-config: default
+  circuitbreaker:
+    circuit-breaker-aspect-order: 2
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        slow-call-duration-threshold: 1500ms
+        slow-call-rate-threshold: 80
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+        record-exceptions:
+          - com.smd.orderservice.client.DownstreamServerException
+          - feign.RetryableException
+        # a 404 or a bad request says nothing about the downstream service's health
+        ignore-exceptions:
+          - com.smd.orderservice.client.user.CustomerNotFoundException
+          - com.smd.orderservice.client.DownstreamClientException
+        # visible in /actuator/health, but an open circuit must not mark order-service DOWN
+        register-health-indicator: true
+        allow-health-indicator-to-fail: false
+    instances:
+      userService:
+        base-config: default
+      productService:
+        base-config: default
+  bulkhead:
+    # No bulkhead-aspect-order here: Resilience4j 2.2 doesn't make it configurable. Its fixed order is
+    # Ordered.LOWEST_PRECEDENCE, i.e. always the innermost aspect, which is what we want.
+    configs:
+      default:
+        # semaphore bulkhead: at most this many concurrent calls per downstream service, so one slow
+        # dependency can't take every compose- thread (core pool 16)
+        max-concurrent-calls: 10
+        max-wait-duration: 50ms
+    instances:
+      userService:
+        base-config: default
+      productService:
+        base-config: default
+
+management:
+  health:
+    circuitbreakers:
+      enabled: true
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
