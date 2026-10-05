@@ -1,0 +1,10 @@
+plugins {
+    id 'feign-conventions'
+    id 'kafka-conventions'
+    id 'dynamodb-conventions'
+}
+
+dependencies {
+    implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
+}

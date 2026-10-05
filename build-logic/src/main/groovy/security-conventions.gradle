@@ -1,0 +1,14 @@
+// Servlet services as OAuth2 resource servers (internal JWTs, CLAUDE.md 6.11).
+// Applied to the services in phase 11; until then they run with security off.
+plugins {
+    id 'spring-service-conventions'
+}
+
+def libs = versionCatalogs.named('libs')
+def lib = { String alias -> libs.findLibrary(alias).get() }
+
+dependencies {
+    implementation lib('spring-boot-starter-oauth2-resource-server')
+
+    testImplementation lib('spring-security-test')
+}

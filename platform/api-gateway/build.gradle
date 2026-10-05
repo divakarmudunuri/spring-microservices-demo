@@ -1,0 +1,9 @@
+plugins {
+    id 'spring-service-conventions'
+}
+
+// Reactive (WebFlux): never add spring-boot-starter-web here.
+
+dependencies {
+    implementation libs.spring.cloud.starter.gateway
+}

@@ -1,0 +1,117 @@
+# =============================================================================
+# Edge stack: nginx + login proxies. Everything from the browser goes through
+# nginx on http://localhost (port 80).
+#
+#   docker compose up -d                                  # store only (public browsing)
+#   docker compose --profile google up -d                 # + customer login with Google
+#   docker compose --profile google --profile okta up -d  # + admin login with Okta
+#
+# The backend (api-gateway etc.) runs separately: on your machine with
+# `./gradlew bootRun` (default GATEWAY_UPSTREAM) or in the backend compose
+# stack (set GATEWAY_UPSTREAM=api-gateway:8080 and join its network).
+# Secrets come from .env (copy .env.example; .env is git-ignored).
+# =============================================================================
+name: smd-edge
+
+services:
+  nginx:
+    image: nginx:1.28-alpine
+    ports:
+      - "${NGINX_PORT:-80}:80"
+    environment:
+      # filled into templates/default.conf.template at startup
+      GATEWAY_UPSTREAM: ${GATEWAY_UPSTREAM:-host.docker.internal:8080}
+      SERVER_NAME: ${SERVER_NAME:-localhost}
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - ./nginx/snippets:/etc/nginx/snippets:ro
+      # the built Angular app (cd ../frontend && npx ng build --watch)
+      - ${UI_DIST:-../frontend/dist/storefront/browser}:/usr/share/nginx/html:ro
+    extra_hosts:
+      - "host.docker.internal:host-gateway"   # lets nginx reach the gateway on your machine (Linux)
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    restart: unless-stopped
+
+  # Session storage for both login proxies: tokens stay server-side, and the
+  # browser cookie is just a small encrypted ticket.
+  redis:
+    image: redis:7.4-alpine
+    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    profiles: ["google", "okta"]
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Customers: "Sign in with Google". The first sign-in also registers the
+  # customer (user-service creates the account on first use).
+  # ---------------------------------------------------------------------------
+  oauth2-proxy-customer:
+    image: quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_PROXY_VERSION:-v7.15.0}
+    profiles: ["google"]
+    depends_on: [redis]
+    command:
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --provider=oidc
+      - --oidc-issuer-url=https://accounts.google.com
+      - --client-id=${GOOGLE_CLIENT_ID:-}
+      - --client-secret=${GOOGLE_CLIENT_SECRET:-}
+      - --scope=openid email profile
+      - --code-challenge-method=S256
+      - --email-domain=*                       # any Google account may register as a customer
+      - --upstream=static://202                # auth_request mode: oauth2-proxy only answers yes/no
+      - --proxy-prefix=/oauth2/customer
+      - --redirect-url=${PUBLIC_BASE_URL:-http://localhost}/oauth2/customer/callback
+      - --whitelist-domain=${SERVER_NAME:-localhost}
+      - --skip-provider-button=true
+      - --set-authorization-header=true        # returns "Authorization: Bearer <Google ID token>" to nginx
+      - --set-xauthrequest=true
+      - --cookie-name=_smd_customer
+      - --cookie-secret=${CUSTOMER_COOKIE_SECRET:-}
+      - --cookie-secure=${COOKIE_SECURE:-false}  # true as soon as you serve HTTPS
+      - --cookie-samesite=lax
+      - --cookie-expire=55m                    # Google ID tokens live 1 hour; sign in again after that
+      - --session-store-type=redis
+      - --redis-connection-url=redis://redis:6379
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Admins: Okta. Only members of the Okta admin group get in.
+  # See ../okta-login-setup/README.md
+  # ---------------------------------------------------------------------------
+  oauth2-proxy-admin:
+    image: quay.io/oauth2-proxy/oauth2-proxy:${OAUTH2_PROXY_VERSION:-v7.15.0}
+    profiles: ["okta"]
+    depends_on: [redis]
+    command:
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --provider=oidc
+      - --oidc-issuer-url=https://${OKTA_DOMAIN:-example.okta.com}/oauth2/default
+      - --client-id=${OKTA_CLIENT_ID:-}
+      - --client-secret=${OKTA_CLIENT_SECRET:-}
+      - --scope=openid profile email offline_access
+      - --code-challenge-method=S256
+      - --email-domain=*
+      - --oidc-groups-claim=groups
+      - --allowed-group=${OKTA_ADMIN_GROUP:-smd-admins}
+      - --upstream=static://202
+      - --proxy-prefix=/oauth2/admin
+      - --redirect-url=${PUBLIC_BASE_URL:-http://localhost}/oauth2/admin/callback
+      - --whitelist-domain=${SERVER_NAME:-localhost}
+      - --skip-provider-button=true
+      - --pass-access-token=true               # returns the Okta access token (X-Auth-Request-Access-Token)
+      - --set-xauthrequest=true
+      - --cookie-name=_smd_admin
+      - --cookie-secret=${ADMIN_COOKIE_SECRET:-}
+      - --cookie-secure=${COOKIE_SECURE:-false}
+      - --cookie-samesite=lax
+      - --cookie-refresh=30m                   # refresh the Okta tokens (offline_access) before they expire
+      - --cookie-expire=8h
+      - --session-store-type=redis
+      - --redis-connection-url=redis://redis:6379
+    restart: unless-stopped

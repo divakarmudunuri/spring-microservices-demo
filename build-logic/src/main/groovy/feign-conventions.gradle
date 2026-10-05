@@ -1,0 +1,18 @@
+// Services that call other services: OpenFeign over Apache HttpClient 5,
+// Micrometer instrumentation, Resilience4j annotations, WireMock for client tests.
+plugins {
+    id 'spring-service-conventions'
+}
+
+def libs = versionCatalogs.named('libs')
+def lib = { String alias -> libs.findLibrary(alias).get() }
+
+dependencies {
+    implementation lib('spring-cloud-starter-openfeign')
+    implementation lib('feign-hc5')
+    implementation lib('feign-micrometer')
+    implementation lib('resilience4j-spring-boot3')
+    implementation lib('spring-boot-starter-aop')    // Resilience4j annotations are applied by aspects
+
+    testImplementation lib('wiremock-standalone')
+}

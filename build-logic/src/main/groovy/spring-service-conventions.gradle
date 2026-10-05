@@ -1,0 +1,30 @@
+// Every Spring Boot service: Boot plugin, Spring Cloud BOM, actuator,
+// tracing (OTLP), Prometheus metrics, Eureka client and test dependencies.
+plugins {
+    id 'java-conventions'
+    id 'org.springframework.boot'
+    id 'io.spring.dependency-management'
+}
+
+def libs = versionCatalogs.named('libs')
+def lib = { String alias -> libs.findLibrary(alias).get() }
+
+dependencyManagement {
+    imports {
+        mavenBom "org.springframework.cloud:spring-cloud-dependencies:${libs.findVersion('spring-cloud').get()}"
+    }
+}
+
+dependencies {
+    implementation lib('spring-boot-starter-actuator')
+    implementation lib('micrometer-tracing-bridge-otel')
+    implementation lib('opentelemetry-exporter-otlp')
+    runtimeOnly lib('micrometer-registry-prometheus')
+    implementation lib('spring-cloud-starter-eureka-client')
+
+    testImplementation lib('spring-boot-starter-test')
+    testImplementation lib('spring-boot-testcontainers')
+    testImplementation lib('testcontainers-junit-jupiter')
+    testImplementation lib('awaitility')
+    testRuntimeOnly lib('junit-platform-launcher')
+}

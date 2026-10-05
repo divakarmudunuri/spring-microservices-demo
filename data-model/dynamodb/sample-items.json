@@ -1,0 +1,46 @@
+{
+  "_comment": "Example items, for review only (not loaded automatically). Shows the exact shape the services write.",
+  "order_tracking": [
+    {
+      "PK": "ORDER#40000000-0000-4000-8000-000000000001",
+      "SK": "STATE",
+      "currentStatus": "SHIPMENT_IN_TRANSIT",
+      "statusRank": 70,
+      "userId": "00000000-0000-4000-8000-0000000000c1",
+      "lastEventAt": "2026-10-04T18:52:10.004Z",
+      "updatedAt": "2026-10-04T18:52:10.120Z"
+    },
+    {
+      "PK": "ORDER#40000000-0000-4000-8000-000000000001",
+      "SK": "EVENT#2026-10-04T18:50:00.123Z#6f1c2a9e-3b7d-4c55-9a51-0d2f8e7b1a10",
+      "eventId": "6f1c2a9e-3b7d-4c55-9a51-0d2f8e7b1a10",
+      "eventType": "ORDER_INITIATED",
+      "status": "ORDER_INITIATED",
+      "sourceService": "order-service",
+      "occurredAt": "2026-10-04T18:50:00.123Z",
+      "receivedAt": "2026-10-04T18:50:00.410Z",
+      "details": { "itemCount": 2 }
+    }
+  ],
+  "carts": [
+    {
+      "PK": "CART#7d0c5b1e-2f6a-4f3e-8a1b-5c9e2d4f6a70",
+      "cartId": "7d0c5b1e-2f6a-4f3e-8a1b-5c9e2d4f6a70",
+      "ownerUserId": null,
+      "items": [
+        { "productId": "20000000-0000-4000-8000-000000000001", "quantity": 1, "addedAt": "2026-10-04T18:40:00Z" },
+        { "productId": "20000000-0000-4000-8000-000000000009", "quantity": 2, "addedAt": "2026-10-04T18:41:30Z" }
+      ],
+      "version": 3,
+      "createdAt": "2026-10-04T18:40:00Z",
+      "updatedAt": "2026-10-04T18:41:30Z",
+      "expiresAt": 1760208090
+    },
+    {
+      "_comment": "processed-event marker used by cart-service to make checkout clearing idempotent (expires after 7 days)",
+      "PK": "EVENT#9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d",
+      "processedAt": "2026-10-04T18:50:02Z",
+      "expiresAt": 1760208602
+    }
+  ]
+}

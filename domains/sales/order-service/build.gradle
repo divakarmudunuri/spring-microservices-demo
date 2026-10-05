@@ -1,0 +1,9 @@
+plugins {
+    id 'feign-conventions'
+    id 'kafka-conventions'
+}
+
+dependencies {
+    implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
+}

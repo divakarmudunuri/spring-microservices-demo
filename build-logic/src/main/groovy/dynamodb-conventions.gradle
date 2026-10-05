@@ -1,0 +1,18 @@
+// Services backed by DynamoDB: AWS SDK v2 enhanced client.
+// Tests run DynamoDB Local through a Testcontainers GenericContainer.
+plugins {
+    id 'spring-service-conventions'
+}
+
+def libs = versionCatalogs.named('libs')
+def lib = { String alias -> libs.findLibrary(alias).get() }
+
+dependencyManagement {
+    imports {
+        mavenBom "software.amazon.awssdk:bom:${libs.findVersion('aws-sdk').get()}"
+    }
+}
+
+dependencies {
+    implementation lib('aws-dynamodb-enhanced')
+}

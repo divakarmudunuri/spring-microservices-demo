@@ -1,0 +1,25 @@
+erDiagram
+    users ||--o{ addresses : "ships to"
+    users {
+        UUID id PK "internal JWT sub"
+        VARCHAR email "lower-case"
+        VARCHAR full_name
+        VARCHAR role "ADMIN / CUSTOMER"
+        VARCHAR status "ACTIVE / SUSPENDED"
+        VARCHAR auth_provider "GOOGLE / OKTA / LOCAL (dev-idp)"
+        VARCHAR external_subject "IdP sub (dev-idp username for LOCAL)"
+        TIMESTAMPTZ last_login_at
+    }
+    addresses {
+        UUID id PK
+        UUID user_id FK
+        VARCHAR full_name
+        VARCHAR line1
+        VARCHAR line2
+        VARCHAR city
+        VARCHAR state
+        VARCHAR postal_code
+        CHAR country "ISO alpha-2"
+        VARCHAR phone
+        BOOLEAN is_default "one per user"
+    }

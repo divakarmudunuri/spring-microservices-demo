@@ -1,0 +1,31 @@
+erDiagram
+    fulfillments ||--|{ fulfillment_items : contains
+    fulfillments {
+        UUID id PK
+        UUID order_id UK
+        UUID user_id
+        VARCHAR status "RECEIVED / PICKING / PACKED / FAILED"
+        VARCHAR warehouse_code
+        VARCHAR failure_reason
+        TIMESTAMPTZ next_step_at "simulator"
+        BIGINT version
+    }
+    fulfillment_items {
+        BIGINT id PK
+        UUID fulfillment_id FK
+        UUID product_id
+        INT quantity
+    }
+    shipments {
+        UUID id PK
+        UUID order_id UK
+        UUID user_id "ownership"
+        VARCHAR tracking_number UK
+        VARCHAR carrier
+        VARCHAR status "LABEL_CREATED..DELIVERED"
+        JSONB shipping_address
+        DATE estimated_delivery
+        TIMESTAMPTZ delivered_at
+        TIMESTAMPTZ next_step_at "simulator"
+        BIGINT version
+    }

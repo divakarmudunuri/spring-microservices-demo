@@ -1,0 +1,2 @@
+// Root project: no code. Shared build configuration lives in the
+// build-logic convention plugins, not in allprojects {} / subprojects {}.

@@ -1,0 +1,31 @@
+erDiagram
+    categories ||--o{ products : groups
+    products ||--|| product_availability : "stock level"
+    categories {
+        UUID id PK
+        VARCHAR slug UK
+        VARCHAR name
+        INT sort_order
+    }
+    products {
+        UUID id PK "= inventory.product_id"
+        VARCHAR sku UK
+        VARCHAR slug UK
+        VARCHAR name
+        TEXT description
+        UUID category_id FK
+        VARCHAR image_url
+        NUMERIC price "> 0"
+        CHAR currency
+        BOOLEAN active
+        BOOLEAN featured
+    }
+    product_availability {
+        UUID product_id PK,FK
+        VARCHAR level "IN_STOCK / LOW_STOCK / OUT_OF_STOCK"
+        TIMESTAMPTZ last_event_at
+    }
+    processed_event {
+        UUID event_id PK
+        TIMESTAMPTZ processed_at
+    }

@@ -1,0 +1,105 @@
+# =============================================================================
+# Dev identity provider: OVERRIDE file for ../nginx-proxy/docker-compose.yml
+#
+# Replaces Google and Okta with a local mock OIDC server so the two sample
+# users can sign in through nginx + oauth2-proxy exactly like real users.
+# LOCAL DEVELOPMENT ONLY.
+#
+# Run from the nginx-proxy folder:
+#   cd ../nginx-proxy
+#   docker compose -f docker-compose.yml -f ../dev-idp/docker-compose.dev-idp.yml \
+#     --profile google --profile okta --profile dev-idp up -d
+#
+# Relative paths below resolve from nginx-proxy/ (the first compose file's folder).
+# The `command` lists here REPLACE the ones in the main file entirely.
+# =============================================================================
+
+services:
+  dev-idp:
+    image: ghcr.io/navikt/mock-oauth2-server:${DEV_IDP_VERSION:-3.1.4}
+    profiles: ["dev-idp"]
+    environment:
+      SERVER_PORT: "8080"
+      JSON_CONFIG_PATH: /config/dev-idp.json
+      LOG_LEVEL: INFO
+    volumes:
+      - ../dev-idp/dev-idp.json:/config/dev-idp.json:ro
+    ports:
+      # the browser's login page, plus the gateway / dev-token.sh on your machine
+      - "${DEV_IDP_PORT:-8099}:8080"
+    restart: unless-stopped
+
+  # ---------------------------------------------------------------------------
+  # Customers: dev-customer issuer instead of Google
+  # Browser → http://localhost:8099/... ; oauth2-proxy → http://dev-idp:8080/...
+  # Discovery is skipped because those two addresses differ; the token's `iss`
+  # is the internal one (http://dev-idp:8080/dev-customer).
+  # ---------------------------------------------------------------------------
+  oauth2-proxy-customer:
+    depends_on: [redis, dev-idp]
+    command:
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --provider=oidc
+      - --oidc-issuer-url=http://dev-idp:8080/dev-customer
+      - --skip-oidc-discovery=true
+      - --login-url=http://localhost:${DEV_IDP_PORT:-8099}/dev-customer/authorize
+      - --redeem-url=http://dev-idp:8080/dev-customer/token
+      - --oidc-jwks-url=http://dev-idp:8080/dev-customer/jwks
+      - --client-id=dev-client
+      - --client-secret=dev-secret
+      - --scope=openid email profile
+      - --code-challenge-method=S256
+      - --email-domain=*
+      - --upstream=static://202
+      - --proxy-prefix=/oauth2/customer
+      - --redirect-url=${PUBLIC_BASE_URL:-http://localhost}/oauth2/customer/callback
+      - --whitelist-domain=${SERVER_NAME:-localhost}
+      - --skip-provider-button=true
+      - --set-authorization-header=true
+      - --set-xauthrequest=true
+      - --cookie-name=_smd_customer
+      # dev-only default so the mock stack starts with zero setup; real .env values win
+      - --cookie-secret=${CUSTOMER_COOKIE_SECRET:-ZGV2LW9ubHktY3VzdG9tZXItY29va2llLXNlY3JldCE=}
+      - --cookie-secure=false
+      - --cookie-samesite=lax
+      - --cookie-expire=55m
+      - --session-store-type=redis
+      - --redis-connection-url=redis://redis:6379
+
+  # ---------------------------------------------------------------------------
+  # Admins: dev-admin issuer instead of Okta (same group rule: smd-admins)
+  # ---------------------------------------------------------------------------
+  oauth2-proxy-admin:
+    depends_on: [redis, dev-idp]
+    command:
+      - --http-address=0.0.0.0:4180
+      - --reverse-proxy=true
+      - --provider=oidc
+      - --oidc-issuer-url=http://dev-idp:8080/dev-admin
+      - --skip-oidc-discovery=true
+      - --login-url=http://localhost:${DEV_IDP_PORT:-8099}/dev-admin/authorize
+      - --redeem-url=http://dev-idp:8080/dev-admin/token
+      - --oidc-jwks-url=http://dev-idp:8080/dev-admin/jwks
+      - --client-id=dev-client
+      - --client-secret=dev-secret
+      - --scope=openid profile email offline_access
+      - --code-challenge-method=S256
+      - --email-domain=*
+      - --oidc-groups-claim=groups
+      - --allowed-group=smd-admins
+      - --upstream=static://202
+      - --proxy-prefix=/oauth2/admin
+      - --redirect-url=${PUBLIC_BASE_URL:-http://localhost}/oauth2/admin/callback
+      - --whitelist-domain=${SERVER_NAME:-localhost}
+      - --skip-provider-button=true
+      - --pass-access-token=true
+      - --set-xauthrequest=true
+      - --cookie-name=_smd_admin
+      - --cookie-secret=${ADMIN_COOKIE_SECRET:-ZGV2LW9ubHktYWRtaW4tY29va2llLXNlY3JldCEhISE=}
+      - --cookie-secure=false
+      - --cookie-samesite=lax
+      - --cookie-refresh=30m
+      - --cookie-expire=8h
+      - --session-store-type=redis
+      - --redis-connection-url=redis://redis:6379

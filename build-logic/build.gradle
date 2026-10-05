@@ -1,0 +1,9 @@
+plugins {
+    id 'groovy-gradle-plugin'
+}
+
+dependencies {
+    // put the Spring plugins on the classpath so the convention plugins can apply them
+    implementation libs.spring.boot.gradle.plugin
+    implementation libs.dependency.management.gradle.plugin
+}

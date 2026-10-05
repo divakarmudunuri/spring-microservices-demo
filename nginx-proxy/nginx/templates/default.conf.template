@@ -1,0 +1,240 @@
+# =============================================================================
+# default.conf.template — the site. envsubst fills in ${...} at container start
+# (only variables defined in the environment are replaced; nginx's own $vars
+# are left alone).
+#
+#   Browser ──► nginx :80 ─┬─► Angular app (static files)
+#                          ├─► oauth2-proxy-customer (Google)  /oauth2/customer/*
+#                          ├─► oauth2-proxy-admin    (Okta)    /oauth2/admin/*
+#                          └─► api-gateway ${GATEWAY_UPSTREAM}  /api/*
+#
+# Access rules (first line of defense; the gateway and services check again):
+#   public            : the store UI, /api/products, /api/categories, /api/storefront (GET only)
+#   optional customer : /api/cart/**  (guest by X-Cart-Id, or the signed-in customer)
+#   customer (Google) : /api/orders, /api/wallet, /api/users/me, /api/tracking, /api/shipments
+#   admin (Okta)      : /admin (UI) and /api/admin/**
+#   blocked           : every other /api path, /actuator, /internal, the dev login
+# =============================================================================
+
+upstream gateway {
+    server ${GATEWAY_UPSTREAM};
+    keepalive 32;
+}
+
+server {
+    listen      80;
+    server_name ${SERVER_NAME};
+
+    include /etc/nginx/snippets/security-headers.conf;
+
+    # oauth2-proxy containers, resolved at request time (see "resolver" in nginx.conf)
+    set $oauth2_customer oauth2-proxy-customer:4180;
+    set $oauth2_admin    oauth2-proxy-admin:4180;
+
+    # JSON errors for the API instead of nginx's HTML pages
+    error_page 403 = @forbidden;
+    error_page 429 = @too_many_requests;
+
+    location @forbidden {
+        include /etc/nginx/snippets/security-headers.conf;
+        default_type application/problem+json;
+        return 403 '{"type":"/problems/forbidden","title":"Forbidden","status":403,"detail":"Not allowed. State-changing requests must send X-Requested-With: XMLHttpRequest."}';
+    }
+
+    location @too_many_requests {
+        include /etc/nginx/snippets/security-headers.conf;
+        default_type application/problem+json;
+        return 429 '{"type":"/problems/rate-limited","title":"Too Many Requests","status":429}';
+    }
+
+    location = /healthz {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    # =========================================================================
+    # Login endpoints (oauth2-proxy)
+    #   /oauth2/customer/start?rd=/checkout   -> "Sign in with Google"
+    #   /oauth2/customer/sign_out?rd=/        -> sign out
+    #   /oauth2/admin/start?rd=/admin         -> Okta sign-in
+    #   /oauth2/admin/sign_out                -> sign out (also ends the Okta session)
+    # =========================================================================
+    location /oauth2/customer/ {
+        limit_req zone=login burst=10 nodelay;
+        proxy_pass       http://$oauth2_customer;
+        proxy_set_header Host                    $host;
+        proxy_set_header X-Real-IP               $remote_addr;
+        proxy_set_header X-Forwarded-Proto       $scheme;
+        proxy_set_header X-Forwarded-Host        $host;
+        proxy_set_header X-Auth-Request-Redirect $request_uri;
+    }
+
+    location /oauth2/admin/ {
+        limit_req zone=login burst=10 nodelay;
+        proxy_pass       http://$oauth2_admin;
+        proxy_set_header Host                    $host;
+        proxy_set_header X-Real-IP               $remote_addr;
+        proxy_set_header X-Forwarded-Proto       $scheme;
+        proxy_set_header X-Forwarded-Host        $host;
+        proxy_set_header X-Auth-Request-Redirect $request_uri;
+    }
+
+    # auth_request targets (internal only: can't be called from outside)
+    location = /_auth/customer {
+        internal;
+        proxy_pass              http://$oauth2_customer/oauth2/customer/auth;
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length    "";
+        proxy_set_header        Host              $host;
+        proxy_set_header        X-Real-IP         $remote_addr;
+        proxy_set_header        X-Forwarded-Uri   $request_uri;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+    }
+
+    location = /_auth/admin {
+        internal;
+        proxy_pass              http://$oauth2_admin/oauth2/admin/auth;
+        proxy_pass_request_body off;
+        proxy_set_header        Content-Length    "";
+        proxy_set_header        Host              $host;
+        proxy_set_header        X-Real-IP         $remote_addr;
+        proxy_set_header        X-Forwarded-Uri   $request_uri;
+        proxy_set_header        X-Forwarded-Proto $scheme;
+    }
+
+    # =========================================================================
+    # PUBLIC API: anyone can browse the store (GET/HEAD only)
+    # =========================================================================
+    location ~ ^/api/(products|categories|storefront)(/|$) {
+        limit_except GET HEAD { deny all; }
+        limit_req zone=catalog burst=60 nodelay;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+        # Anonymous by design: drop any token the client sent.
+        proxy_set_header Authorization "";
+    }
+
+    # =========================================================================
+    # CART: works for guests AND signed-in customers
+    # If a customer session exists, forward its token; if not (401 from the
+    # auth check), fall through to @cart_guest and forward without a token.
+    # =========================================================================
+    location /api/cart {
+        if ($csrf_reject) { return 403; }
+        limit_req zone=api burst=20 nodelay;
+        include /etc/nginx/snippets/auth-customer.conf;
+        error_page 401 = @cart_guest;
+        error_page 403 = @forbidden;          # a location's own error_page replaces the server-level ones
+        error_page 429 = @too_many_requests;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+    }
+
+    location @cart_guest {
+        limit_req zone=api burst=20 nodelay;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+        proxy_set_header Authorization "";
+    }
+
+    # =========================================================================
+    # CUSTOMER API: signed in with Google
+    # =========================================================================
+    location ~ ^/api/(orders|wallet|tracking|shipments)(/|$) {
+        if ($csrf_reject) { return 403; }
+        limit_req zone=api burst=20 nodelay;
+        include /etc/nginx/snippets/auth-customer.conf;
+        error_page 401 = @customer_login_required;
+        error_page 403 = @forbidden;          # a location's own error_page replaces the server-level ones
+        error_page 429 = @too_many_requests;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+    }
+
+    location ~ ^/api/users/me(/|$) {
+        if ($csrf_reject) { return 403; }
+        limit_req zone=api burst=20 nodelay;
+        include /etc/nginx/snippets/auth-customer.conf;
+        error_page 401 = @customer_login_required;
+        error_page 403 = @forbidden;          # a location's own error_page replaces the server-level ones
+        error_page 429 = @too_many_requests;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+    }
+
+    location @customer_login_required {
+        include /etc/nginx/snippets/security-headers.conf;
+        default_type application/problem+json;
+        return 401 '{"type":"/problems/login-required","title":"Login required","status":401,"detail":"Sign in with Google to continue.","loginUrl":"/oauth2/customer/start"}';
+    }
+
+    # =========================================================================
+    # ADMIN: signed in with Okta and a member of the admin group
+    # =========================================================================
+    location /api/admin/ {
+        if ($csrf_reject) { return 403; }
+        limit_req zone=api burst=20 nodelay;
+        include /etc/nginx/snippets/auth-admin.conf;
+        error_page 401 = @admin_login_required;
+        error_page 403 = @forbidden;          # a location's own error_page replaces the server-level ones
+        error_page 429 = @too_many_requests;
+        include /etc/nginx/snippets/proxy-to-gateway.conf;
+    }
+
+    location @admin_login_required {
+        include /etc/nginx/snippets/security-headers.conf;
+        default_type application/problem+json;
+        return 401 '{"type":"/problems/login-required","title":"Admin login required","status":401,"detail":"Sign in with Okta to continue.","loginUrl":"/oauth2/admin/start"}';
+    }
+
+    # Admin UI pages: same Angular app, but the HTML for /admin/* is only served
+    # to signed-in admins. Not signed in -> straight to the Okta login.
+    location ^~ /admin {
+        include /etc/nginx/snippets/auth-admin.conf;
+        error_page 401 = @admin_ui_login;
+        root /usr/share/nginx/html;
+        try_files /index.html =404;
+        add_header Cache-Control "no-store" always;
+    }
+
+    location @admin_ui_login {
+        return 302 /oauth2/admin/start?rd=$request_uri;
+    }
+
+    # =========================================================================
+    # BLOCKED: anything else under /api, plus internal endpoints
+    # (the dev login /api/auth/** exists only on the gateway's own port in the
+    #  `local` profile and is never reachable through nginx)
+    # =========================================================================
+    location /api/ {
+        include /etc/nginx/snippets/security-headers.conf;
+        default_type application/problem+json;
+        return 404 '{"type":"/problems/not-found","title":"Not Found","status":404}';
+    }
+
+    location ~ ^/(actuator|internal|\.well-known/jwks\.json) {
+        return 404;
+    }
+
+    # =========================================================================
+    # ANGULAR APP (public). Built files are mounted at /usr/share/nginx/html.
+    # =========================================================================
+    root  /usr/share/nginx/html;
+    index index.html;
+
+    # hashed build output (main-ABC123.js, ...) never changes: cache for a year
+    location ~* \.(?:js|css|woff2?|ttf)$ {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files $uri =404;
+    }
+
+    location /products/ {               # product placeholder images
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "public, max-age=86400" always;
+        try_files $uri =404;
+    }
+
+    # client-side routes (/cart, /checkout, /orders/123, ...) all load index.html
+    location / {
+        include /etc/nginx/snippets/security-headers.conf;
+        add_header Cache-Control "no-cache" always;
+        try_files $uri $uri/ /index.html;
+    }
+}

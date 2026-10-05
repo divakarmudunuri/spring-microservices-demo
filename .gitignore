@@ -1,0 +1,43 @@
+# --- Hidden folders -------------------------------------------------------
+# Every dot-folder (.gradle/, .idea/, .vscode/, .local/, .angular/, ...).
+# Dot-files such as .gitignore and .env.example are still tracked.
+.*/
+# Exceptions: un-ignore a dot-folder here if it should be committed, e.g.
+# !.github/
+
+# --- Secrets and local keys -----------------------------------------------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.jks
+
+# --- Gradle / Java --------------------------------------------------------
+build/
+!gradle/wrapper/gradle-wrapper.jar
+out/
+bin/
+*.class
+*.log
+hs_err_pid*
+replay_pid*
+
+# --- IDEs -----------------------------------------------------------------
+*.iml
+*.ipr
+*.iws
+*.swp
+*~
+
+# --- Node / Angular (frontend/) -------------------------------------------
+node_modules/
+dist/
+coverage/
+npm-debug.log*
+yarn-error.log*
+
+# --- OS -------------------------------------------------------------------
+.DS_Store
+Thumbs.db

@@ -1,0 +1,8 @@
+plugins {
+    id 'kafka-conventions'
+    id 'dynamodb-conventions'
+}
+
+dependencies {
+    implementation libs.spring.boot.starter.web
+}

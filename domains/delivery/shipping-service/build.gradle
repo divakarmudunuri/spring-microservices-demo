@@ -1,0 +1,7 @@
+plugins {
+    id 'kafka-conventions'
+}
+
+dependencies {
+    implementation libs.spring.boot.starter.web
+}

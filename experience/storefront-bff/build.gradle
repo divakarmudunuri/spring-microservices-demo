@@ -1,0 +1,7 @@
+plugins {
+    id 'feign-conventions'
+}
+
+dependencies {
+    implementation libs.spring.boot.starter.web
+}

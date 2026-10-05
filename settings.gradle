@@ -1,0 +1,31 @@
+pluginManagement {
+    // convention plugins (java-conventions, spring-service-conventions, ...)
+    includeBuild 'build-logic'
+}
+
+dependencyResolutionManagement {
+    repositoriesMode = RepositoriesMode.FAIL_ON_PROJECT_REPOS
+    repositories {
+        mavenCentral()
+    }
+}
+
+rootProject.name = 'spring-microservices-demo'
+
+// Gradle project names stay flat (':order-service'); each maps to its folder.
+// Same order as the service table in CLAUDE.md section 3.
+[
+    'discovery-server'      : 'platform/discovery-server',
+    'api-gateway'           : 'platform/api-gateway',
+    'storefront-bff'        : 'experience/storefront-bff',
+    'user-service'          : 'domains/identity/user-service',
+    'product-service'       : 'domains/catalog/product-service',
+    'cart-service'          : 'domains/sales/cart-service',
+    'order-service'         : 'domains/sales/order-service',
+    'fulfillment-service'   : 'domains/delivery/fulfillment-service',
+    'shipping-service'      : 'domains/delivery/shipping-service',
+    'order-tracking-service': 'domains/delivery/order-tracking-service',
+].each { name, dir ->
+    include name
+    project(":${name}").projectDir = file(dir)
+}

@@ -1,0 +1,78 @@
+erDiagram
+    orders ||--o{ order_items : contains
+    orders ||--o| payments : "paid by"
+    orders ||--o{ stock_movements : "caused"
+    orders ||--o{ wallet_transactions : "charged / refunded"
+    inventory ||--o{ stock_movements : "audited by"
+    customer_wallets ||--o{ wallet_transactions : ledger
+
+    orders {
+        UUID id PK
+        UUID user_id "user_db.users.id"
+        VARCHAR status "INITIATED..COMPLETED"
+        VARCHAR rejection_reason "nullable"
+        NUMERIC total_amount "set at checkout"
+        CHAR currency
+        JSONB shipping_address "snapshot"
+        UUID cart_id "nullable"
+        VARCHAR idempotency_key UK
+        TIMESTAMPTZ delivery_acknowledged_at
+        BIGINT version
+    }
+    order_items {
+        BIGINT id PK
+        UUID order_id FK
+        UUID product_id "no FK, see notes"
+        INT quantity "1..10"
+        NUMERIC unit_price "set at checkout"
+    }
+    inventory {
+        UUID product_id PK "= products.id"
+        INT quantity_on_hand "CHECK >= 0"
+        BIGINT version
+    }
+    stock_movements {
+        BIGINT id PK
+        UUID product_id FK
+        INT delta "minus = sold"
+        VARCHAR reason "ORDER_CONFIRMED / ORDER_CANCELLED / RESTOCK"
+        UUID order_id FK "nullable"
+        UUID performed_by "admin, restocks"
+        VARCHAR note
+    }
+    customer_wallets {
+        UUID user_id PK
+        NUMERIC balance "CHECK >= 0"
+        CHAR currency
+        BIGINT version
+    }
+    wallet_transactions {
+        BIGINT id PK
+        UUID user_id FK
+        VARCHAR type "TOP_UP / PAYMENT / REFUND"
+        NUMERIC amount "> 0"
+        UUID order_id FK "nullable"
+        VARCHAR idempotency_key "top-ups"
+    }
+    payments {
+        UUID id PK
+        UUID order_id FK,UK
+        UUID user_id
+        NUMERIC amount
+        VARCHAR status "CAPTURED / REFUNDED"
+        TIMESTAMPTZ refunded_at
+    }
+    outbox_event {
+        UUID id PK "= eventId"
+        VARCHAR topic
+        UUID aggregate_id "Kafka key"
+        VARCHAR event_type
+        JSONB payload
+        VARCHAR trace_parent
+        INT attempts
+        TIMESTAMPTZ published_at "null = pending"
+    }
+    processed_event {
+        UUID event_id PK
+        TIMESTAMPTZ processed_at
+    }

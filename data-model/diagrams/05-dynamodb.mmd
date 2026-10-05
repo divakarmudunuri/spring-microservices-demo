@@ -1,0 +1,14 @@
+flowchart TB
+    subgraph T1["order_tracking  (PK + SK)"]
+        direction LR
+        A["PK = ORDER#&lt;orderId&gt;<br/>SK = STATE<br/>currentStatus · statusRank · userId · lastEventAt"]
+        B["PK = ORDER#&lt;orderId&gt;<br/>SK = EVENT#&lt;occurredAt&gt;#&lt;eventId&gt;<br/>eventType · status · sourceService · details"]
+        A --- B
+    end
+    subgraph T2["carts  (PK only, GSI byOwner)"]
+        direction LR
+        C["PK = CART#&lt;cartId&gt;<br/>ownerUserId (null = guest) · items[] · version · expiresAt (TTL)"]
+        D["PK = EVENT#&lt;eventId&gt;<br/>processedAt · expiresAt (TTL)"]
+    end
+    Q1["Query PK = ORDER#id<br/>→ STATE + timeline in time order"] --> T1
+    Q2["GetItem CART#id  (guest)<br/>Query byOwner = userId  (customer)"] --> T2

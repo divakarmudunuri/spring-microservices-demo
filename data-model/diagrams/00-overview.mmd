@@ -1,0 +1,28 @@
+flowchart LR
+    subgraph PG["PostgreSQL 16 (one database per service)"]
+        odb[("order_db<br/>orders · inventory · wallets · payments")]
+        udb[("user_db<br/>users · addresses")]
+        pdb[("product_db<br/>catalog · availability")]
+        fdb[("fulfillment_db")]
+        sdb[("shipping_db")]
+    end
+    subgraph DDB["Amazon DynamoDB"]
+        tt[("order_tracking")]
+        ct[("carts")]
+    end
+    OS[order-service] --> odb
+    US[user-service] --> udb
+    PS[product-service] --> pdb
+    FS[fulfillment-service] --> fdb
+    SS[shipping-service] --> sdb
+    TS[order-tracking-service] --> tt
+    CS[cart-service] --> ct
+
+    OS -. "order-events<br/>inventory-events" .-> K{{Kafka}}
+    FS -. fulfillment-events .-> K
+    SS -. shipping-events .-> K
+    K -. inventory-events .-> PS
+    K -. "all order topics" .-> TS
+    K -. ORDER_CONFIRMED .-> FS
+    K -. FULFILLMENT_PACKED .-> SS
+    K -. ORDER_CONFIRMED .-> CS

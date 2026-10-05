@@ -1,0 +1,87 @@
+{
+  "interactiveLogin": true,
+  "tokenCallbacks": [
+    {
+      "issuerId": "dev-customer",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "subject",
+          "match": "sample-customer",
+          "claims": {
+            "sub": "sample-customer",
+            "email": "customer@demo.local",
+            "email_verified": true,
+            "name": "Demo Customer",
+            "aud": ["dev-client"]
+          }
+        },
+        {
+          "requestParam": "username",
+          "match": "sample-customer",
+          "claims": {
+            "sub": "sample-customer",
+            "email": "customer@demo.local",
+            "email_verified": true,
+            "name": "Demo Customer",
+            "aud": ["dev-client"]
+          }
+        }
+      ]
+    },
+    {
+      "issuerId": "dev-admin",
+      "tokenExpiry": 3600,
+      "requestMappings": [
+        {
+          "requestParam": "subject",
+          "match": "sample-admin",
+          "claims": {
+            "sub": "sample-admin",
+            "email": "admin@demo.local",
+            "email_verified": true,
+            "name": "Demo Admin",
+            "groups": ["smd-admins"],
+            "aud": ["api://default"]
+          }
+        },
+        {
+          "requestParam": "username",
+          "match": "sample-admin",
+          "claims": {
+            "sub": "sample-admin",
+            "email": "admin@demo.local",
+            "email_verified": true,
+            "name": "Demo Admin",
+            "groups": ["smd-admins"],
+            "aud": ["api://default"]
+          }
+        },
+        {
+          "requestParam": "subject",
+          "match": "sample-not-admin",
+          "claims": {
+            "sub": "sample-not-admin",
+            "email": "not-admin@demo.local",
+            "email_verified": true,
+            "name": "Not An Admin",
+            "groups": [],
+            "aud": ["api://default"]
+          }
+        },
+        {
+          "requestParam": "username",
+          "match": "sample-not-admin",
+          "claims": {
+            "sub": "sample-not-admin",
+            "email": "not-admin@demo.local",
+            "email_verified": true,
+            "name": "Not An Admin",
+            "groups": [],
+            "aud": ["api://default"]
+          }
+        }
+      ]
+    }
+  ]
+}

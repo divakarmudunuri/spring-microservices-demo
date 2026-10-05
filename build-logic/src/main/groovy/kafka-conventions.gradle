@@ -1,0 +1,14 @@
+// Services that produce or consume Kafka events.
+plugins {
+    id 'spring-service-conventions'
+}
+
+def libs = versionCatalogs.named('libs')
+def lib = { String alias -> libs.findLibrary(alias).get() }
+
+dependencies {
+    implementation lib('spring-kafka')
+
+    testImplementation lib('spring-kafka-test')
+    testImplementation lib('testcontainers-kafka')
+}
