@@ -15,12 +15,12 @@ An e-commerce order flow split into Spring Boot microservices, built to show com
 
 All of it sits behind an nginx edge, with an Angular storefront and admin UI on top.
 
-It's a learning and portfolio project, so clarity beats cleverness: every pattern below points at the class that implements it and the test that proves it.
+It's a learning and portfolio project, so clarity beats cleverness: every pattern below points at the class that implements it and the test that proves it. The full catalog, with code excerpts, is in [docs/design-patterns.md](docs/design-patterns.md).
 
 | | |
 |---|---|
 | **Stack** | Java 17 (Azul Zulu) · Spring Boot 3.5 · Spring Cloud 2025.0 (Eureka, Gateway, OpenFeign, LoadBalancer) · Resilience4j · Apache Kafka (KRaft) · PostgreSQL 16 + Flyway · Amazon DynamoDB (Local) · Spring Security (OAuth2 resource servers, internal RS256 JWTs) · nginx + oauth2-proxy · Micrometer + OpenTelemetry → Jaeger · Prometheus + Grafana · Angular 21 · Gradle 8.14 (Groovy DSL) · Testcontainers, WireMock, Awaitility, Vitest |
-| **Docs** | [Architecture](docs/architecture.md) · [Sequence diagrams](docs/sequence-diagrams.md) · [Events](docs/events.md) · [Security](docs/security.md) · [Observability](docs/observability.md) · [Data model](data-model/README.md) · [Edge](nginx-proxy/README.md) · [Dev sign-in](dev-idp/README.md) · [Frontend](frontend/README.md) · [Build rules](CLAUDE.md) |
+| **Docs** | [Architecture](docs/architecture.md) · [Sequence diagrams](docs/sequence-diagrams.md) · [Design patterns](docs/design-patterns.md) · [Events](docs/events.md) · [Security](docs/security.md) · [Observability](docs/observability.md) · [Testing Kafka](docs/testing-kafka.md) · [Testing DynamoDB](docs/testing-dynamodb.md) · [Traces](docs/tracing.md) · [Data model](data-model/README.md) · [Edge](nginx-proxy/README.md) · [Dev sign-in](dev-idp/README.md) · [Frontend](frontend/README.md) · [Build rules](CLAUDE.md) |
 
 ## Contents
 
@@ -335,6 +335,8 @@ To start over as someone else, sign out: `/oauth2/customer/sign_out?rd=/` or `/o
 - **Jaeger:** service `order-service`, operation `http post /api/orders/checkout`. One order is one trace across the gateway, Kafka and every service.
 - **Grafana:** checkout outcomes, outbox pending, consumer lag.
 - **Kafka UI:** `order-events`, `fulfillment-events`, `shipping-events`, `inventory-events`.
+
+**Hands-on guides:** [testing Kafka](docs/testing-kafka.md) (topics, lag, outbox, duplicates, DLT), [testing DynamoDB](docs/testing-dynamodb.md) (timelines, idempotent writes, cart versions, TTL), [looking at traces](docs/tracing.md).
 
 **From the command line:** the [demos](#demos) below script the interesting cases (rollback, insufficient funds, concurrency, parallel timing, circuit breaker, compensation, load balancing) against the gateway with tokens from the mock sign-in.
 

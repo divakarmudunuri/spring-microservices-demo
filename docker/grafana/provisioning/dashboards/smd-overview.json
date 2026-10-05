@@ -541,8 +541,8 @@
     {
       "id": 15,
       "type": "timeseries",
-      "title": "Consumer lag (max per service)",
-      "description": "Records waiting to be consumed, from the Kafka client metrics Spring Boot registers for every consumer.",
+      "title": "Consumer lag (records behind, per service)",
+      "description": "Records waiting to be consumed: the sum of every partition\u2019s current lag (Kafka client metrics registered by Spring Boot). records_lag_max is a windowed maximum and reads NaN while nothing flows, so it is not used.",
       "datasource": {
         "type": "prometheus",
         "uid": "prometheus"
@@ -560,7 +560,7 @@
             "type": "prometheus",
             "uid": "prometheus"
           },
-          "expr": "max by (application) (kafka_consumer_fetch_manager_records_lag_max)",
+          "expr": "sum by (application) (kafka_consumer_fetch_manager_records_lag)",
           "legendFormat": "{{application}}"
         }
       ],
