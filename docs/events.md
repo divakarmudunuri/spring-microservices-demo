@@ -53,8 +53,13 @@ Within one transaction the events are written in the order above (`INVENTORY_RES
 `ORDER_CONFIRMED` carries everything downstream services need (items, prices, address), so fulfillment and shipping never call order-service back.
 
 | `ORDER_DELIVERED` | order-service applied `SHIPMENT_DELIVERED` (order is `DELIVERED`) | `deliveredAt` |
+| `INVENTORY_RESTORED` | compensation transaction (after `FULFILLMENT_FAILED`) | `items: [{productId, quantity}]` |
+| `PAYMENT_REFUNDED` | compensation transaction | `paymentId`, `amount`, `currency` |
+| `ORDER_CANCELLED` | compensation transaction | `reason` (from `FULFILLMENT_FAILED`) |
 
-Still to come: `PAYMENT_REFUNDED`, `INVENTORY_RESTORED`, `ORDER_CANCELLED` (phase 8, compensation), `DELIVERY_ACKNOWLEDGED` (phase 11).
+The three compensation events are written in that order, in the same transaction as the restock and the refund (plus one `INVENTORY_CHANGED` per product on `inventory-events`).
+
+Still to come: `DELIVERY_ACKNOWLEDGED` (phase 11).
 
 ## `inventory-events` (order-service)
 
@@ -73,7 +78,7 @@ Key and `orderId` are the order id; `userId` is copied from the `ORDER_CONFIRMED
 | `FULFILLMENT_RECEIVED` | `ORDER_CONFIRMED` consumed, fulfillment created | `fulfillmentId`, `warehouseCode`, `items: [{productId, quantity}]` |
 | `FULFILLMENT_PICKING` | simulator: picking started | `fulfillmentId` |
 | `FULFILLMENT_PACKED` | simulator: ready to ship | `fulfillmentId`, `warehouseCode`, `shippingAddress: {fullName, line1, line2, city, state, postalCode, country, phone}` |
-| `FULFILLMENT_FAILED` | simulator: failed (rate `demo.simulation.failure-rate`); triggers the refund + restock in order-service (phase 8) | `fulfillmentId`, `reason` |
+| `FULFILLMENT_FAILED` | simulator: failed (rate `demo.simulation.failure-rate`); triggers the refund + restock in order-service | `fulfillmentId`, `reason` |
 
 `FULFILLMENT_PACKED` carries the address so shipping-service never has to ask for it.
 
@@ -96,7 +101,7 @@ Key and `orderId` are the order id; `userId` is copied from `FULFILLMENT_PACKED`
 | `ORDER_CONFIRMED` | creates a fulfillment | | | timeline |
 | `FULFILLMENT_RECEIVED` | | | order → `IN_FULFILLMENT` | timeline |
 | `FULFILLMENT_PACKED` | | creates a shipment | | timeline |
-| `FULFILLMENT_FAILED` | | | refund + restock (phase 8) | timeline |
+| `FULFILLMENT_FAILED` | | | refund + restock, order → `CANCELLED` | timeline |
 | `SHIPMENT_PICKED_UP` | | | order → `SHIPPED` | timeline |
 | `SHIPMENT_DELIVERED` | | | order → `DELIVERED`, publishes `ORDER_DELIVERED` | timeline |
 | any other | | | | timeline |

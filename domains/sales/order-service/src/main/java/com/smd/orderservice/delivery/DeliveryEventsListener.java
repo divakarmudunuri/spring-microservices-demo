@@ -25,7 +25,7 @@ public class DeliveryEventsListener {
             case "FULFILLMENT_RECEIVED" -> progress.apply(event, OrderStatus.IN_FULFILLMENT);
             case "SHIPMENT_PICKED_UP" -> progress.apply(event, OrderStatus.SHIPPED);
             case "SHIPMENT_DELIVERED" -> progress.apply(event, OrderStatus.DELIVERED);
-            // TODO(phase-8): FULFILLMENT_FAILED → refund + restock (OrderCancellationService)
+            case "FULFILLMENT_FAILED" -> progress.fulfillmentFailed(event);   // compensation: refund + restock
             default -> log.trace("Ignoring {} {}", event.eventType(), event.eventId());
         }
     }

@@ -53,6 +53,15 @@ public class Payment {
         return p;
     }
 
+    /** The money went back to the wallet. */
+    public void refund(Instant at) {
+        if (!"CAPTURED".equals(status)) {
+            throw new IllegalStateException("Payment " + id + " is " + status + ", expected CAPTURED");
+        }
+        status = "REFUNDED";
+        refundedAt = at;
+    }
+
     public UUID getId() {
         return id;
     }

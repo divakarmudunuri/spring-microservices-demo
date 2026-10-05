@@ -15,6 +15,7 @@ import java.util.UUID;
 public class StockMovement {
 
     public static final String ORDER_CONFIRMED = "ORDER_CONFIRMED";
+    public static final String ORDER_CANCELLED = "ORDER_CANCELLED";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -40,6 +41,16 @@ public class StockMovement {
 
     protected StockMovement() {
         // for JPA
+    }
+
+    /** Stock given back because the order was cancelled (positive delta). */
+    public static StockMovement cancellation(UUID productId, int quantity, UUID orderId) {
+        StockMovement m = new StockMovement();
+        m.productId = productId;
+        m.delta = quantity;
+        m.reason = ORDER_CANCELLED;
+        m.orderId = orderId;
+        return m;
     }
 
     public static StockMovement sale(UUID productId, int quantity, UUID orderId) {

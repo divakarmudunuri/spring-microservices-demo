@@ -57,4 +57,10 @@ Watch it (`local` profile): `curl localhost:8081/actuator/circuitbreakers`, `/ac
 
 `delivery/DeliveryEventsListener` consumes `fulfillment-events` and `shipping-events` (group `order-service`): `FULFILLMENT_RECEIVED` → `IN_FULFILLMENT`, `SHIPMENT_PICKED_UP` → `SHIPPED`, `SHIPMENT_DELIVERED` → `DELIVERED` + an `ORDER_DELIVERED` event. `delivery/OrderProgressService` applies them in one transaction with the `processed_event` marker; the status only moves forward (`OrderStatus.canAdvanceTo`), so a late event is ignored. `FULFILLMENT_FAILED` (refund + restock) comes in phase 8.
 
+## Compensation: a choreography saga (phase 8)
+
+Checkout needs no compensation: stock and payment are one local transaction. The only failure that can happen after payment is in another service: `FULFILLMENT_FAILED`. order-service reacts on its own (nobody coordinates; that's **choreography**, as opposed to an **orchestrator** telling each participant what to do) with `compensation/OrderCancellationService.cancel`, one `@Transactional`: stock back (+ `stock_movements` `ORDER_CANCELLED`, + `INVENTORY_CHANGED`), money back to the wallet (+ `wallet_transactions` `REFUND`), payment `REFUNDED`, order `CANCELLED`, and `INVENTORY_RESTORED` → `PAYMENT_REFUNDED` → `ORDER_CANCELLED`. It is idempotent: the event id goes into `processed_event` in the same transaction, a cancelled order is left alone, and the database allows one `REFUND` per order. A `FULFILLMENT_FAILED` for an order that already shipped goes to the DLT. Metric: `order.cancellations`.
+
+See it: start fulfillment-service with `--demo.simulation.failure-rate=1.0` and place an order; ~4 s later stock and wallet are back and the tracking timeline ends in `ORDER_CANCELLED`.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

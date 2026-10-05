@@ -39,6 +39,15 @@ public final class OrderEventPayloads {
     public record OrderDelivered(Instant deliveredAt) {
     }
 
+    public record InventoryRestored(List<Line> items) {
+    }
+
+    public record PaymentRefunded(UUID paymentId, BigDecimal amount, String currency) {
+    }
+
+    public record OrderCancelled(String reason) {
+    }
+
     /** On {@code inventory-events}: the new exact quantity (only product-service's level is public). */
     public record InventoryChanged(UUID productId, int quantityOnHand) {
     }

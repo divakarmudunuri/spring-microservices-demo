@@ -39,6 +39,15 @@ public class WalletTransaction {
         // for JPA
     }
 
+    public static WalletTransaction refund(UUID userId, BigDecimal amount, UUID orderId) {
+        WalletTransaction tx = new WalletTransaction();
+        tx.userId = userId;
+        tx.type = "REFUND";
+        tx.amount = amount;
+        tx.orderId = orderId;
+        return tx;
+    }
+
     public static WalletTransaction payment(UUID userId, BigDecimal amount, UUID orderId) {
         WalletTransaction tx = new WalletTransaction();
         tx.userId = userId;

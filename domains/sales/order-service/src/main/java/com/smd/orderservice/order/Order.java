@@ -96,6 +96,22 @@ public class Order {
     }
 
     /**
+     * Compensation: fulfillment failed after payment. Only possible before the order left the warehouse.
+     *
+     * @return false if the order is already CANCELLED (a repeated FULFILLMENT_FAILED): nothing to do
+     */
+    public boolean cancel() {
+        if (status == OrderStatus.CANCELLED) {
+            return false;
+        }
+        if (status != OrderStatus.CONFIRMED && status != OrderStatus.IN_FULFILLMENT) {
+            throw new IllegalStateException("Order " + id + " is " + status + " and can no longer be cancelled");
+        }
+        status = OrderStatus.CANCELLED;
+        return true;
+    }
+
+    /**
      * Applies a delivery update (IN_FULFILLMENT, SHIPPED, DELIVERED) only if it moves the order forward.
      * Events from different topics can arrive out of order; a late one is ignored.
      *

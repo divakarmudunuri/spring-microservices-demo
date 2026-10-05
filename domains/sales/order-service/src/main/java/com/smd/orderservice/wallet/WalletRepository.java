@@ -28,4 +28,18 @@ public class WalletRepository {
                 .param("userId", userId)
                 .update() == 1;
     }
+
+    /** Gives money back (refund). The wallet must exist: it was debited for the same order. */
+    public void credit(UUID userId, BigDecimal amount) {
+        int updated = jdbc.sql("""
+                        UPDATE customer_wallets
+                           SET balance = balance + :amount, version = version + 1
+                         WHERE user_id = :userId""")
+                .param("amount", amount)
+                .param("userId", userId)
+                .update();
+        if (updated != 1) {
+            throw new IllegalStateException("No wallet for user " + userId);
+        }
+    }
 }

@@ -16,13 +16,13 @@ final class EventDetails {
             return details;
         }
         switch (eventType) {
-            case "ORDER_INITIATED", "INVENTORY_RESERVED" -> details.put("itemCount", Integer.toString(payload.path("items").size()));
+            case "ORDER_INITIATED", "INVENTORY_RESERVED", "INVENTORY_RESTORED" -> details.put("itemCount", Integer.toString(payload.path("items").size()));
             case "ORDER_CONFIRMED" -> {
                 details.put("itemCount", Integer.toString(payload.path("items").size()));
                 copy(payload, details, "totalAmount", "currency");
             }
             case "PAYMENT_CAPTURED", "PAYMENT_REFUNDED" -> copy(payload, details, "amount", "currency");
-            case "ORDER_REJECTED", "ORDER_FAILED", "FULFILLMENT_FAILED" -> copy(payload, details, "reason", "detail");
+            case "ORDER_REJECTED", "ORDER_FAILED", "FULFILLMENT_FAILED", "ORDER_CANCELLED" -> copy(payload, details, "reason", "detail");
             default -> copy(payload, details, "trackingNumber", "carrier", "estimatedDelivery");
         }
         return details;

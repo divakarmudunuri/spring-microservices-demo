@@ -1,5 +1,6 @@
 package com.smd.orderservice.delivery;
 
+import com.smd.orderservice.compensation.OrderCancellationService;
 import com.smd.orderservice.events.ConsumedEvent;
 import com.smd.orderservice.events.EventTypes;
 import com.smd.orderservice.events.InvalidEventException;
@@ -27,13 +28,15 @@ public class OrderProgressService {
     private final OrderRepository orders;
     private final ProcessedEvents processedEvents;
     private final OutboxWriter outbox;
+    private final OrderCancellationService cancellation;
     private final Clock clock;
 
     public OrderProgressService(OrderRepository orders, ProcessedEvents processedEvents, OutboxWriter outbox,
-                                Clock clock) {
+                                OrderCancellationService cancellation, Clock clock) {
         this.orders = orders;
         this.processedEvents = processedEvents;
         this.outbox = outbox;
+        this.cancellation = cancellation;
         this.clock = clock;
     }
 
@@ -64,5 +67,33 @@ public class OrderProgressService {
             outbox.orderEvent(EventTypes.ORDER_DELIVERED, order.getId(), order.getUserId(),
                     new OrderEventPayloads.OrderDelivered(clock.instant()));
         }
+    }
+
+    /**
+     * FULFILLMENT_FAILED → refund + restock. The processed-event marker and the whole compensation commit together,
+     * so a redelivered event changes nothing; an order already cancelled is left alone too.
+     */
+    @Transactional(rollbackFor = Exception.class)
+    public void fulfillmentFailed(ConsumedEvent event) {
+        if (event.orderId() == null || event.eventId() == null) {
+            throw new InvalidEventException(event.eventType() + " without orderId or eventId");
+        }
+        if (!processedEvents.markProcessed(event.eventId())) {
+            log.debug("Skipping duplicate event {}", event.eventId());
+            return;
+        }
+        Optional<Order> found = orders.findById(event.orderId());
+        if (found.isEmpty()) {
+            log.warn("FULFILLMENT_FAILED for unknown order {}; ignored", event.orderId());
+            return;
+        }
+        OrderStatus status = found.get().getStatus();
+        if (status != OrderStatus.CONFIRMED && status != OrderStatus.IN_FULFILLMENT && status != OrderStatus.CANCELLED) {
+            // a contract violation (e.g. the order already shipped): retrying can't help, inspect it in the DLT
+            throw new InvalidEventException("FULFILLMENT_FAILED for order " + event.orderId() + " in status " + status);
+        }
+        String reason = event.payload() != null && event.payload().hasNonNull("reason")
+                ? event.payload().get("reason").asText() : "Fulfillment failed";
+        cancellation.cancel(event.orderId(), reason);
     }
 }
