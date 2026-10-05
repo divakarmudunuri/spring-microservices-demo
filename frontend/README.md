@@ -4,11 +4,11 @@ Angular storefront and admin UI for `spring-microservices-demo` (CLAUDE.md 6.12)
 
 - **Angular 21.2 (LTS)**, project name `storefront`, standalone components, zoneless with signals, strict TypeScript, SCSS.
 - **Unit tests:** Vitest (Angular 21's default runner).
-- **npm project:** not part of the Gradle build. `node_modules/` and `dist/` are git-ignored.
+- **npm project:** not part of the Gradle build. `node_modules/` and `dist/` are git-ignored (and kept out of the nginx image build by `.dockerignore`).
 
 ## Run it
 
-The app is served by **nginx** (`../nginx-proxy/`) at http://localhost. Sign-in works there, and every API call goes through nginx → gateway → services.
+The app is **built into and hosted by the edge nginx** (`../nginx-proxy/Dockerfile`: `npm ci` + `ng build` on this folder, then `nginx:1.28-alpine`). It's served at http://localhost, where sign-in works and every API call goes through nginx → gateway → services. The edge compose file builds the image for you; after app changes, run `cd ../nginx-proxy && docker compose up -d --build nginx`.
 
 Once:
 
@@ -16,13 +16,17 @@ Once:
 npm ci
 ```
 
-Then, with the backend and the edge stack running (see the start order in `../CLAUDE.md` section 8):
+**Rebuild-on-save loop** (still through nginx): run the watch build, and start the edge with the `ui-watch` override, which makes nginx serve your local `dist/storefront/browser` instead of the built-in app:
 
 ```bash
 npx ng build --watch
 ```
 
-The edge compose file mounts `dist/storefront/browser` by default (`UI_DIST`), so a rebuild is live on the next page load. To try it without Google or Okta accounts, start the edge with the `dev-idp` override (`../dev-idp/README.md`) and sign in as `sample-customer` or `sample-admin`.
+```bash
+cd ../nginx-proxy && docker compose -f docker-compose.yml -f docker-compose.ui-watch.yml up -d
+```
+
+To try it without Google or Okta accounts, add the `dev-idp` override (`../dev-idp/README.md`) and sign in as `sample-customer` or `sample-admin`.
 
 **Pure UI work:** `npm start` serves on http://localhost:4200 with `proxy.conf.json`, which forwards `/api` and `/oauth2` to nginx on http://localhost. Cookies are per host, not per port, so a session made on http://localhost also works on :4200. After a sign-in, oauth2-proxy sends you back to `localhost` (port 80).
 

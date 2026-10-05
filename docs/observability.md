@@ -70,7 +70,7 @@ All services expose `/actuator/prometheus` (`health`, `info`, `metrics`, `promet
 | `outbox.pending`, `outbox.publish.failures` | order-, fulfillment-, shipping-service | unpublished rows; failed sends |
 | `tracking.dynamodb.write{outcome}` | order-tracking-service | written / duplicate / stale / error |
 | `resilience4j_circuitbreaker_*` | order-service, cart-service, storefront-bff, api-gateway | state, failure rate, calls |
-| `kafka_consumer_fetch_manager_records_lag_max` | every Kafka consumer | consumer lag (Kafka client metrics, registered by Spring Boot) |
+| `kafka_consumer_fetch_manager_records_lag` | every Kafka consumer | consumer lag per partition (Kafka client metrics, registered by Spring Boot); the dashboard sums it per service. (`records_lag_max` is a windowed maximum and reads `NaN` while idle.) |
 
 The Grafana dashboard has one row each for HTTP (rate, p95/p99, 5xx share, filterable by service), checkout, resilience (open circuit breakers, failure rates), and events (outbox pending and failures, consumer lag, tracking writes, failing listener calls).
 

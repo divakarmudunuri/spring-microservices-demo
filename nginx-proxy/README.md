@@ -25,7 +25,9 @@ flowchart LR
 
 | File | Purpose |
 |---|---|
-| `docker-compose.yml` | nginx, the two oauth2-proxy instances, Redis |
+| `Dockerfile` | the nginx image with the Angular app built in (multi-stage: `npm ci` + `ng build` from `../frontend`, then `nginx:1.28-alpine`) |
+| `docker-compose.yml` | nginx (built from `Dockerfile`), the two oauth2-proxy instances, Redis |
+| `docker-compose.ui-watch.yml` | optional override: nginx serves your local `ng build --watch` output instead of the built-in app |
 | `.env.example` | every setting and secret; copy to `.env` (git-ignored) |
 | `nginx/nginx.conf` | main config: JSON access log, correlation id, CSRF guard, rate-limit zones |
 | `nginx/templates/default.conf.template` | the site: routes and access rules (`${GATEWAY_UPSTREAM}`, `${SERVER_NAME}` filled in at startup) |
@@ -35,7 +37,7 @@ flowchart LR
 
 | Path | Access at nginx | What nginx forwards |
 |---|---|---|
-| `/`, `/cart`, `/checkout`, `/orders/...` (UI pages) | public | static files (`index.html` for app routes) |
+| `/`, `/cart`, `/checkout`, `/orders/...` (UI pages) | public | the Angular app built into the nginx image (`index.html` for app routes) |
 | `/api/products/**`, `/api/categories/**`, `/api/storefront/**` | **public**, GET/HEAD only | no token (any client-sent `Authorization` is removed) |
 | `/api/cart/**` | public **or** customer | the customer's Google ID token if signed in, otherwise nothing (guest cart via `X-Cart-Id`) |
 | `/api/orders/**`, `/api/wallet/**`, `/api/users/me`, `/api/tracking/**`, `/api/shipments/**` | **customer** (Google) | `Authorization: Bearer <Google ID token>` |
@@ -69,7 +71,7 @@ Because sign-in uses cookies, the browser sends them automatically, even on a re
 
 ## Run it
 
-1. **Build the UI** (once the Angular app exists): `cd ../frontend && npx ng build --watch`. nginx serves `frontend/dist/storefront/browser`; change `UI_DIST` in `.env` if your build path differs.
+1. **The UI** needs nothing up front: `docker compose up --build` builds the nginx image with the Angular app inside (`npm ci` + `ng build` from `../frontend`). After UI changes, rebuild it with `docker compose up -d --build nginx`. For a rebuild-on-save loop, see [Developing the UI](#developing-the-ui).
 2. **Start the backend** so the gateway listens on `:8080` (see `../CLAUDE.md` section 8).
 3. **Configure secrets:** `cp .env.example .env`, then fill in Google and/or Okta values (below). Generate each cookie secret with:
    ```bash
@@ -84,6 +86,37 @@ Because sign-in uses cookies, the browser sends them automatically, even on a re
 5. Open http://localhost.
 
 Logs are JSON lines: `docker compose logs -f nginx`.
+
+### How the UI is served
+
+One nginx container does both jobs: it **hosts the Angular app** and **fronts the API and sign-in**.
+
+```
+Browser ──► nginx :80 ─┬─► Angular app: files in the image (/usr/share/nginx/html)
+                       ├─► oauth2-proxy (Google / Okta)   /oauth2/*
+                       └─► api-gateway                    /api/**
+```
+
+- **The image** (`Dockerfile`) is a two-stage build. A Node stage runs `npm ci` and `ng build` on `../frontend` (passed in as the named build context `frontend`, see `docker-compose.yml`). The nginx stage copies `dist/storefront/browser` into `/usr/share/nginx/html`.
+- **The nginx config** (`nginx/`) is mounted, not baked in: config edits only need `docker compose exec nginx nginx -s reload`, while app changes need `docker compose up -d --build nginx`.
+- **Serving the app** (`default.conf.template`):
+  - hashed JS/CSS are cached for a year (not their 404s);
+  - `index.html` is revalidated on every load;
+  - product images are cached for a day;
+  - `/admin` pages are never cached and need an Okta session;
+  - app routes (`/cart`, `/orders/123`) fall back to `index.html`;
+  - security headers go on every response.
+
+### Developing the UI
+
+Serve your local build instead of the one built into the image:
+
+```bash
+cd ../frontend && npx ng build --watch            # terminal 1
+docker compose -f docker-compose.yml -f docker-compose.ui-watch.yml up -d   # (+ the dev-idp override if you use it)
+```
+
+`docker-compose.ui-watch.yml` mounts `UI_DIST` (default `../frontend/dist/storefront/browser`) over the built-in app. Every rebuild is live on the next page load, still through nginx, so sign-in works. Drop the override, and run with `--build`, to go back to the built-in app.
 
 ## Google sign-in setup (customers)
 
@@ -111,7 +144,7 @@ Use the **dev identity provider** in [`../dev-idp/`](../dev-idp/README.md). It's
 
 ```bash
 docker compose -f docker-compose.yml -f ../dev-idp/docker-compose.dev-idp.yml \
-  --profile google --profile okta --profile dev-idp up -d
+  --profile google --profile okta --profile dev-idp up -d --build
 ```
 
 Then open http://localhost:
@@ -141,10 +174,12 @@ The routing rules in this folder were also checked while it was written, using f
 | Google: "access blocked / app not verified" | the account isn't listed under **Test users** while the app is in Testing |
 | `403` on a `POST` from curl | add `-H 'X-Requested-With: XMLHttpRequest'` (CSRF rule) |
 | `429` | rate limit: 30 req/s per IP for the catalog, 10 req/s for other API calls, 1 req/s to start a login |
-| blank page at `/` | the UI isn't built yet, or `UI_DIST` points to the wrong folder |
+| old UI after a change | rebuild the image (`docker compose up -d --build nginx`), or use `docker-compose.ui-watch.yml` with `ng build --watch` |
+| blank page at `/` with the watch override | `ng build --watch` hasn't produced a build yet, or `UI_DIST` points to the wrong folder |
 
 ## Production notes
 
 - Serve HTTPS (terminate TLS here or at a load balancer), set `COOKIE_SECURE=true`, enable the `Strict-Transport-Security` header in `snippets/security-headers.conf`, and register `https://` redirect URIs.
 - Don't publish the gateway's port; only nginx should be reachable.
+- Build the nginx image (app included) in CI and push it to a registry. For production, bake the `nginx/` config into it too, instead of mounting it.
 - Run Redis with persistence and a password if sessions must survive restarts.

@@ -1,0 +1,14 @@
+# =============================================================================
+# OPTIONAL override for UI development: nginx serves your local build instead of
+# the one built into its image, so `ng build --watch` changes show up on the next
+# page load (no image rebuild).
+#
+#   cd ../frontend && npx ng build --watch          # in one terminal
+#   docker compose -f docker-compose.yml -f docker-compose.ui-watch.yml up -d
+#
+# Combine with the dev-idp override as usual (add -f ../dev-idp/docker-compose.dev-idp.yml).
+# =============================================================================
+services:
+  nginx:
+    volumes:
+      - ${UI_DIST:-../frontend/dist/storefront/browser}:/usr/share/nginx/html:ro
