@@ -24,3 +24,34 @@ eureka:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+spring.cloud.openfeign:
+  # Resilience4j annotations sit on the adapter methods (phase 5), so Feign's own circuit-breaker
+  # wrapping stays off; otherwise every call would be wrapped twice.
+  circuitbreaker:
+    enabled: false
+  httpclient:
+    hc5:
+      enabled: true
+    # an explicitly sized connection pool for the Apache HttpClient 5 transport
+    max-connections: 200
+    max-connections-per-route: 50
+  client:
+    config:
+      # No client uses Feign's defaults. Feign's own Retryer stays at its default, NEVER_RETRY:
+      # retries belong to Resilience4j (phase 5).
+      user-service:
+        connect-timeout: 1000
+        read-timeout: 2000
+        logger-level: none
+      product-service:
+        connect-timeout: 1000
+        read-timeout: 2000
+        logger-level: none
+
+composition:
+  core-pool-size: 16
+  max-pool-size: 32
+  queue-capacity: 100
+  # overall limit per parallel call; must exceed connect + read timeout of the slowest client
+  deadline: 4s

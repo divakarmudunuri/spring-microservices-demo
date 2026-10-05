@@ -5,3 +5,17 @@ spring:
     # The seed is V1000 so it never collides with real schema migrations (V2, V3, ...).
     # On a local database that already has V1000, a new V2 is "out of order"; allow it here only.
     out-of-order: true
+
+spring.cloud.openfeign.client.config:
+  user-service:
+    logger-level: basic
+  product-service:
+    logger-level: basic
+
+logging:
+  level:
+    # Feign logs at DEBUG; BASIC = method, URL, status and time of each call
+    com.smd.orderservice.client: debug
+    # elapsed time of each parallel call and of the whole fan-out
+    com.smd.orderservice.composition: debug
+    com.smd.orderservice.checkout: debug
