@@ -24,14 +24,19 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.DynamicPropertyRegistry;
 import org.springframework.test.context.DynamicPropertySource;
 import org.testcontainers.containers.PostgreSQLContainer;
+import org.testcontainers.kafka.KafkaContainer;
 
 import javax.sql.DataSource;
 
 /**
- * Real Postgres (schema + local seed, reset before every test) and a WireMock server standing in for
- * user-service and product-service. Feign finds WireMock through Spring Cloud's simple discovery client.
+ * Real Postgres (schema + local seed, reset before every test), a real Kafka broker, and a WireMock server standing in for user-service and product-service. Feign finds WireMock through Spring Cloud's simple discovery client.
  */
-@SpringBootTest(properties = "eureka.client.enabled=false")
+@SpringBootTest(properties = {
+        "eureka.client.enabled=false",
+        // no background publishing: Spring caches test contexts, and a relay left running in one of them
+        // would race with other tests over the shared database. Tests call OutboxRelay.poll() themselves.
+        "outbox.relay.enabled=false"
+})
 @AutoConfigureMockMvc
 @ActiveProfiles("local")
 public abstract class OrderServiceIntegrationTest {
@@ -47,10 +52,14 @@ public abstract class OrderServiceIntegrationTest {
             .withDatabaseName("order_db")
             .withUsername("order_svc");
 
+    @ServiceConnection
+    protected static final KafkaContainer KAFKA = new KafkaContainer("apache/kafka:4.3.1");
+
     protected static final WireMockServer DOWNSTREAM = new WireMockServer(options().dynamicPort());
 
     static {
         POSTGRES.start();
+        KAFKA.start();
         DOWNSTREAM.start();
     }
 

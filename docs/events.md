@@ -33,6 +33,8 @@ Every event is a JSON object with the same envelope:
 
 Delivery is **at least once** (transactional outbox + relay), so consumers must be idempotent. Unknown event types are logged and skipped, never failed.
 
+On the wire the value is this JSON as UTF-8 text (the producer sends it as a string; there are no Java type headers), plus a Kafka header `eventType`. Consumers map it to their own classes. Note that the producer stores the envelope as Postgres `jsonb`, so key order and spacing in the published JSON are not the same as above: always parse, never compare strings.
+
 ## `order-events` (order-service)
 
 Written to `outbox_event` in the same transaction as the change they describe.

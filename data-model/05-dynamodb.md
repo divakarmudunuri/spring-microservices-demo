@@ -39,6 +39,21 @@ flowchart TB
 - **Write:** one `TransactWriteItems` with (1) Put the event item with `attribute_not_exists(PK)`, which makes redelivered events no-ops, and (2) Update `STATE` with `attribute_not_exists(statusRank) OR statusRank < :newRank`, so status only moves forward.
 - **Read:** `Query PK = ORDER#<id>` returns `STATE` + the whole timeline in one call. `GetItem STATE` (strongly consistent) for "latest".
 - **Ownership:** customers may read only items whose `STATE.userId` is their own id.
+- **Status ranks** (`statusRank` on `STATE`; the status only moves to a higher rank). The status is the event type:
+
+  | Rank | Event type(s) |
+  |---|---|
+  | 10 | `ORDER_INITIATED` |
+  | 20 | `INVENTORY_RESERVED` |
+  | 25 | `PAYMENT_CAPTURED` |
+  | 30 | `ORDER_CONFIRMED`, `ORDER_REJECTED`, `ORDER_FAILED` (only one of them ever happens) |
+  | 40 / 45 / 50 | `FULFILLMENT_RECEIVED` / `FULFILLMENT_PICKING` / `FULFILLMENT_PACKED` |
+  | 55 / 60 / 70 / 75 / 80 | `SHIPMENT_CREATED` / `SHIPMENT_PICKED_UP` / `SHIPMENT_IN_TRANSIT` / `SHIPMENT_OUT_FOR_DELIVERY` / `SHIPMENT_DELIVERED` |
+  | 85 | `ORDER_DELIVERED` |
+  | 90 / 91 / 92 / 95 | `FULFILLMENT_FAILED` / `INVENTORY_RESTORED` / `PAYMENT_REFUNDED` / `ORDER_CANCELLED` |
+  | 100 | `DELIVERY_ACKNOWLEDGED` (the order is `COMPLETED`; highest rank) |
+
+  Source: `StatusRanks` in order-tracking-service. Gaps leave room for new event types.
 - **Billing:** on-demand. **TTL:** attribute `expiresAt` defined but unset by default.
 
 ## `carts`

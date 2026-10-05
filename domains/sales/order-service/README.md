@@ -49,4 +49,8 @@ Every Feign call goes through its adapter (`client/user/UserAdapter`, `client/pr
 
 Watch it (`local` profile): `curl localhost:8081/actuator/circuitbreakers`, `/actuator/health` (shows each breaker; an open one never makes the service `DOWN`), `/actuator/retries`, `/actuator/bulkheads`. Make product-service fail with `curl -X POST localhost:8083/internal/chaos -H 'Content-Type: application/json' -d '{"failureRate":1.0}'`: the first orders take ~0.3 s (three attempts each), then the circuit opens and orders fail in ~20 ms without calling product-service.
 
+## Outbox relay (phase 6)
+
+`outbox/OutboxRelay` polls `outbox_event` every 500 ms (`SELECT … FOR UPDATE SKIP LOCKED LIMIT 100`, oldest first), sends each row with `KafkaTemplate.send(…).get(timeout)` (key = order id, or product id on `inventory-events`; header `eventType`), and marks it `published_at`. The first failure increments `attempts` and stops the batch, so events are never published out of order. Delivery is at least once. Producer: `acks=all`, idempotence on. Topics `order-events` and `inventory-events` are created on startup (`outbox/KafkaTopicsConfig`). Metrics: `outbox.pending`, `outbox.publish.failures`.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

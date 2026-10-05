@@ -7,6 +7,43 @@ spring:
       enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
   application:
     name: order-tracking-service
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-tracking-service
+      auto-offset-reset: earliest       # a new group (e.g. a rebuild) reads every topic from the start
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      # a record that isn't valid JSON doesn't crash the listener: it goes straight to the DLT
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # map every record to this service's own envelope class; never trust the producer's type headers
+        spring.json.value.default.type: com.smd.ordertrackingservice.events.EventEnvelope
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.smd.ordertrackingservice.events
+    producer:
+      # used only to publish failed records to the DLTs
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 10000   # don't stall the partition for 60 s if the DLT can't be reached
+    listener:
+      ack-mode: record   # commit each record's offset after the listener returned successfully
+
+tracking:
+  # every order-related topic; fulfillment-events and shipping-events are added in phase 7
+  topics: order-events
+  dynamodb:
+    table-name: order_tracking
+    region: us-east-1
+    create-table: false
+    api-call-timeout: 2s
+    api-call-attempt-timeout: 700ms
+
+kafka:
+  topics:
+    partitions: 3
+    replicas: 1
 
 eureka:
   client:

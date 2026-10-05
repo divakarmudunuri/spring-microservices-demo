@@ -2,6 +2,18 @@ server:
   port: 8081
 
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    producer:
+      # the outbox payload is already the JSON envelope; the key is the order (or product) id
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all                       # wait until every in-sync replica has the record
+      properties:
+        enable.idempotence: true      # the broker drops duplicates caused by producer retries
+        max.block.ms: 5000            # don't block the relay for 60 s when the broker is unreachable
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
   mvc:
     problemdetails:
       enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
@@ -139,3 +151,15 @@ management:
     web:
       exposure:
         include: health, info, metrics, prometheus
+
+kafka:
+  topics:
+    partitions: 3
+    replicas: 1
+
+outbox:
+  relay:
+    enabled: true
+    interval: 500ms
+    batch-size: 100
+    send-timeout: 10s
