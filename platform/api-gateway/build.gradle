@@ -6,4 +6,9 @@ plugins {
 
 dependencies {
     implementation libs.spring.cloud.starter.gateway
+    // per-route circuit breakers (the gateway's CircuitBreaker filter is reactive)
+    implementation libs.spring.cloud.starter.circuitbreaker.reactor.resilience4j
+    implementation libs.caffeine
+
+    testImplementation libs.wiremock.standalone
 }

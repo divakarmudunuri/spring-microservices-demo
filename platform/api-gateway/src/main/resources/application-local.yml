@@ -1,0 +1,11 @@
+management:
+  endpoint:
+    health:
+      show-details: always
+    gateway:
+      access: read-only
+  endpoints:
+    web:
+      exposure:
+        # local only: GET /actuator/gateway/routes lists the routes; circuit breakers too
+        include: health, info, metrics, prometheus, gateway, circuitbreakers

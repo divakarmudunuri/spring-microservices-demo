@@ -4,6 +4,141 @@ server:
 spring:
   application:
     name: api-gateway
+  reactor:
+    # makes the trace id (MDC) follow the request across reactive threads, so gateway log lines carry it
+    context-propagation: auto
+  webflux:
+    problemdetails:
+      enabled: true   # gateway errors (404 no route, 405, ...) as RFC 7807
+  cloud:
+    gateway:
+      server:
+        webflux:
+          discovery:
+            locator:
+              enabled: false   # only the routes below are exposed, never "every service in Eureka"
+          httpclient:
+            connect-timeout: 1000
+            response-timeout: 5s
+          # Applied to every route. The rate limiter is in memory (no Redis): ratelimit/InMemoryRateLimiter.
+          default-filters:
+            - name: RequestRateLimiter
+              args:
+                key-resolver: "#{@callerKeyResolver}"
+                rate-limiter: "#{@inMemoryRateLimiter}"
+          # Each route: a path → a service by name (lb:// = Eureka + Spring Cloud LoadBalancer), a circuit breaker
+          # whose fallback is a 503 ProblemDetail, and its own timeouts. Anything not listed here is a 404.
+          # fulfillment-service has no route on purpose: it is internal, driven only by Kafka events.
+          # Keep in sync with nginx-proxy/nginx/templates/default.conf.template (CLAUDE.md 6.11).
+          routes:
+            - id: user-service
+              uri: lb://user-service
+              predicates:
+                - Path=/api/users/me/**,/api/admin/me
+              filters:
+                - name: CircuitBreaker
+                  args: { name: userService, fallbackUri: "forward:/fallback/user-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 3000 }
+
+            - id: product-service
+              uri: lb://product-service
+              predicates:
+                - Path=/api/products/**,/api/categories/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: productService, fallbackUri: "forward:/fallback/product-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 3000 }
+
+            - id: storefront-bff
+              uri: lb://storefront-bff
+              predicates:
+                - Path=/api/storefront/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: storefrontBff, fallbackUri: "forward:/fallback/storefront-bff" }
+              metadata: { connect-timeout: 1000, response-timeout: 5000 }
+
+            - id: cart-service
+              uri: lb://cart-service
+              predicates:
+                - Path=/api/cart/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: cartService, fallbackUri: "forward:/fallback/cart-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 5000 }
+
+            - id: order-service
+              uri: lb://order-service
+              predicates:
+                - Path=/api/orders/**,/api/wallet/**,/api/admin/orders/**,/api/admin/payments/**,/api/admin/inventory/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: orderService, fallbackUri: "forward:/fallback/order-service" }
+              # checkout waits for its parallel lookups (up to their 5 s deadline) before the transaction
+              metadata: { connect-timeout: 1000, response-timeout: 8000 }
+
+            - id: shipping-service-admin
+              uri: lb://shipping-service
+              predicates:
+                - Path=/api/admin/shipments/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: shippingService, fallbackUri: "forward:/fallback/shipping-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 3000 }
+
+            - id: shipping-service
+              uri: lb://shipping-service
+              predicates:
+                - Path=/api/shipments/**
+                - Method=GET
+              filters:
+                - name: CircuitBreaker
+                  args: { name: shippingService, fallbackUri: "forward:/fallback/shipping-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 3000 }
+
+            - id: order-tracking-service
+              uri: lb://order-tracking-service
+              predicates:
+                - Path=/api/tracking/**,/api/admin/tracking/**
+              filters:
+                - name: CircuitBreaker
+                  args: { name: trackingService, fallbackUri: "forward:/fallback/order-tracking-service" }
+              metadata: { connect-timeout: 1000, response-timeout: 3000 }
+
+# The routes' circuit breakers. Only gateway-level failures count (connection refused, timeout, no instance in
+# Eureka): a downstream service's own error response (4xx/5xx with a ProblemDetail) passes through unchanged.
+resilience4j:
+  circuitbreaker:
+    configs:
+      default:
+        sliding-window-type: COUNT_BASED
+        sliding-window-size: 20
+        minimum-number-of-calls: 10
+        failure-rate-threshold: 50
+        wait-duration-in-open-state: 10s
+        permitted-number-of-calls-in-half-open-state: 3
+        automatic-transition-from-open-to-half-open-enabled: true
+  timelimiter:
+    configs:
+      default:
+        # the gateway's CircuitBreaker filter also applies a time limit (default 1 s!). Keep it above every
+        # route's response-timeout, so the route timeout is the one that applies.
+        timeout-duration: 10s
+
+gateway:
+  rate-limit:
+    authenticated:
+      capacity: 60
+      refill-per-second: 30
+    anonymous:
+      capacity: 30
+      refill-per-second: 10
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info, metrics, prometheus
 
 eureka:
   client:

@@ -17,4 +17,14 @@ Spring Cloud Gateway (WebFlux). The only backend entry point; it sits behind ngi
 - Correlation-ID filter, per-route circuit breakers and timeouts, rate limiting
 - Test without a browser: `TOKEN=$(../../dev-idp/dev-token.sh customer)`, then call `http://localhost:8080/api/...` with `Authorization: Bearer $TOKEN`
 
-**Status:** not implemented yet. See `../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../data-model/`.
+## Implemented so far (phase 10)
+
+- **Routes** in `application.yml` (`spring.cloud.gateway.server.webflux.routes`), each `lb://<service>` with its own circuit breaker and `connect-timeout` / `response-timeout`. Only the paths in CLAUDE.md 6.8 are routed; everything else (e.g. `/api/users/{id}`, `/internal/**`, fulfillment-service) is a 404. `/api/shipments/**` is GET only. In `local`: `curl localhost:8080/actuator/gateway/routes`.
+- **Correlation id** (`filter/CorrelationIdFilter`): keeps nginx's `X-Correlation-Id` or generates one, passes it downstream, returns it.
+- **Request log** (`filter/RequestLoggingFilter`): `GET /api/categories → product-service 200 OK in 9 ms [correlationId=…]`, with the trace id in the log pattern.
+- **Circuit breaker fallback** (`fallback/FallbackController`): connection refused, timeout, no instance in Eureka or an open circuit → `503` ProblemDetail (`/problems/service-unavailable`, with `service`). A downstream service's own error responses pass through unchanged.
+- **Rate limiting** (`ratelimit/`): in memory (no Redis), a token bucket per caller: `user:<sub>` once authenticated (phase 11), otherwise `ip:<client>` from the last `X-Forwarded-For` entry (the one nginx adds). Anonymous: 30 burst / 10 per s; authenticated: 60 / 30. `429` with `X-RateLimit-*` headers. Per gateway instance.
+
+Authentication, token exchange and role rules arrive in phase 11.
+
+**Status:** in progress. See `../../CLAUDE.md` for the full spec and the implementation phases.
