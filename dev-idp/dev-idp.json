@@ -1,5 +1,6 @@
 {
   "interactiveLogin": true,
+  "loginPagePath": "/config/login.html",
   "tokenCallbacks": [
     {
       "issuerId": "dev-customer",
@@ -13,7 +14,9 @@
             "email": "customer@demo.local",
             "email_verified": true,
             "name": "Demo Customer",
-            "aud": ["dev-client"]
+            "aud": [
+              "dev-client"
+            ]
           }
         },
         {
@@ -24,7 +27,9 @@
             "email": "customer@demo.local",
             "email_verified": true,
             "name": "Demo Customer",
-            "aud": ["dev-client"]
+            "aud": [
+              "dev-client"
+            ]
           }
         }
       ]
@@ -41,8 +46,12 @@
             "email": "admin@demo.local",
             "email_verified": true,
             "name": "Demo Admin",
-            "groups": ["smd-admins"],
-            "aud": ["api://default"]
+            "groups": [
+              "smd-admins"
+            ],
+            "aud": [
+              "api://default"
+            ]
           }
         },
         {
@@ -53,8 +62,12 @@
             "email": "admin@demo.local",
             "email_verified": true,
             "name": "Demo Admin",
-            "groups": ["smd-admins"],
-            "aud": ["api://default"]
+            "groups": [
+              "smd-admins"
+            ],
+            "aud": [
+              "api://default"
+            ]
           }
         },
         {
@@ -66,7 +79,9 @@
             "email_verified": true,
             "name": "Not An Admin",
             "groups": [],
-            "aud": ["api://default"]
+            "aud": [
+              "api://default"
+            ]
           }
         },
         {
@@ -78,7 +93,9 @@
             "email_verified": true,
             "name": "Not An Admin",
             "groups": [],
-            "aud": ["api://default"]
+            "aud": [
+              "api://default"
+            ]
           }
         }
       ]

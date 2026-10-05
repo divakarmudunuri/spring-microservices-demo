@@ -23,6 +23,7 @@ Spring Cloud Gateway (WebFlux). The only backend entry point; it sits behind ngi
 - **Correlation id** (`filter/CorrelationIdFilter`): keeps nginx's `X-Correlation-Id` or generates one, passes it downstream, returns it.
 - **Request log** (`filter/RequestLoggingFilter`): `GET /api/categories → product-service 200 OK in 9 ms [correlationId=…]`, with the trace id in the log pattern.
 - **Circuit breaker fallback** (`fallback/FallbackController`): connection refused, timeout, no instance in Eureka or an open circuit → `503` ProblemDetail (`/problems/service-unavailable`, with `service`). A downstream service's own error responses pass through unchanged.
+- **Bulkhead** (`resilience4j.bulkhead` in `application.yml`): Spring Cloud CircuitBreaker also wraps each route in a Resilience4j bulkhead, which defaults to 25 concurrent calls and answers `503` (`BulkheadFullException`) beyond that. It's set explicitly to 100 with no wait, so the rate limiters decide (`429`) and the bulkhead only sheds real overload (found in phase 13).
 - **Rate limiting** (`ratelimit/`): in memory (no Redis), a token bucket per caller: `user:<sub>` once authenticated (phase 11), otherwise `ip:<client>` from the last `X-Forwarded-For` entry (the one nginx adds). Anonymous: 30 burst / 10 per s; authenticated: 60 / 30. `429` with `X-RateLimit-*` headers. Per gateway instance.
 
 ## Security (phase 11)

@@ -118,6 +118,14 @@ resilience4j:
         wait-duration-in-open-state: 10s
         permitted-number-of-calls-in-half-open-state: 3
         automatic-transition-from-open-to-half-open-enabled: true
+  # Spring Cloud's Resilience4j circuit breaker also wraps each route in a bulkhead (default 25 concurrent calls;
+  # beyond that the route sheds load into the 503 fallback, "BulkheadFullException"). Set it deliberately: enough
+  # for bursts that nginx (60) and the rate limiter let through, still a ceiling per downstream service.
+  bulkhead:
+    configs:
+      default:
+        max-concurrent-calls: 100
+        max-wait-duration: 0
   timelimiter:
     configs:
       default:

@@ -22,6 +22,7 @@ flowchart LR
 |---|---|
 | `dev-idp.json` | the mock server's config: two issuers and the users each one knows |
 | `docker-compose.dev-idp.yml` | **override** for `../nginx-proxy/docker-compose.yml`: adds the `dev-idp` container and points both oauth2-proxy instances at it |
+| `login.html` | the mock server's login page: one button per sample user, which also sends that user's claims (see below) |
 | `dev-token.sh` | prints an access token for a sample user (password grant), for API tests without a browser |
 
 ## Sample users
@@ -32,7 +33,9 @@ flowchart LR
 | `sample-admin` | `dev-admin` (Okta) | `email=admin@demo.local`, `groups=["smd-admins"]`, `aud=api://default` | `…0000000000a1`, `ADMIN` |
 | `sample-not-admin` | `dev-admin` (Okta) | `groups=[]` | none: refused (tests the admin-group rule) |
 
-There's no password: the mock login page only asks for a username. Any other username gets a token without the mapped claims and is refused by user-service (no automatic registration in dev mode).
+There's no password: the login page (`login.html`) has one button per sample user. An "advanced" form lets you type any other subject; it gets a token without the mapped claims and is refused (no automatic registration in dev mode).
+
+**Why a custom login page:** the `tokenCallbacks` / `requestMappings` in `dev-idp.json` only match parameters of the *token* request, so they work for `dev-token.sh` (password grant) but not for the browser's authorization-code flow, where the default page sends only a username. Without claims, oauth2-proxy failed with "neither the id_token nor the profileURL set an email". `login.html` (enabled by `loginPagePath`) posts `username` plus the user's `claims` JSON, which the mock server puts into the issued tokens. Keep its claims in sync with `dev-idp.json`.
 
 This is the **only** way to sign in as a sample user; there's no password login. `user_db` stores no passwords, and the sample users are found by `external_subject` = the username above.
 
@@ -48,8 +51,8 @@ docker compose -f docker-compose.yml -f ../dev-idp/docker-compose.dev-idp.yml \
 
 **In the browser** (http://localhost):
 
-- **Customer:** "Sign in with Google" → the mock login page (on port 8099) → type `sample-customer` → back in the store, signed in.
-- **Admin:** open http://localhost/admin → mock login page → `sample-admin` → admin UI.
+- **Customer:** "Sign in with Google" → the mock login page (on port 8099) → click `sample-customer` → back in the store, signed in.
+- **Admin:** open http://localhost/admin → mock login page → click `sample-admin` → admin UI.
 - **Refusal test:** open http://localhost/admin as `sample-not-admin` → oauth2-proxy answers **403** (not in `smd-admins`).
 - **Sign out:** `/oauth2/customer/sign_out?rd=/`, `/oauth2/admin/sign_out?rd=/`.
 
@@ -71,7 +74,7 @@ for i in $(seq 1 100); do curl -s -o /dev/null -w '%{http_code}\n' \
 ## How it plugs in
 
 - **nginx and the frontend:** no change. They use the same `/oauth2/customer/*` and `/oauth2/admin/*` paths as with Google and Okta.
-- **oauth2-proxy:** the override replaces each proxy's `command`. The browser reaches the mock server at `http://localhost:8099`, while oauth2-proxy reaches it at `http://dev-idp:8080` inside Docker. So discovery is skipped and the URLs are given explicitly (`--login-url` for the browser; `--redeem-url` / `--oidc-jwks-url` internal). Tokens are minted on the internal call, so their `iss` is `http://dev-idp:8080/<issuer>`.
+- **oauth2-proxy:** the override replaces each proxy's `command`. The admin proxy also gets `--oidc-extra-audience=api://default`, because the dev admin's ID token carries `aud=api://default` (Okta's real ID token has the client id). The browser reaches the mock server at `http://localhost:8099`, while oauth2-proxy reaches it at `http://dev-idp:8080` inside Docker. So discovery is skipped and the URLs are given explicitly (`--login-url` for the browser; `--redeem-url` / `--oidc-jwks-url` internal). Tokens are minted on the internal call, so their `iss` is `http://dev-idp:8080/<issuer>`.
 - **Gateway** (`application-local.yml`, spec in `CLAUDE.md` 6.11). The issuer string and the key URL are set separately for the same reason:
   ```yaml
   security:
@@ -91,11 +94,11 @@ for i in $(seq 1 100); do curl -s -o /dev/null -w '%{http_code}\n' \
 
 > **Token issuer when calling with `dev-token.sh`:** that script requests tokens from `localhost:8099`, so their `iss` is `http://localhost:8099/<issuer>`, not `http://dev-idp:8080/<issuer>`. To accept both, list each dev issuer under both addresses in the gateway and user-service config (same `jwk-set-uri`, audience and role).
 
-## Still to verify on first run
+## Verification log
 
-These follow the mock server's documentation; items 2 and 3 have now been checked (2026-10-05, phase 11).
+All three have been checked: items 2 and 3 on 2026-10-05 (phase 11), item 1 on 2026-10-05 (phase 13).
 
-1. **The internal/browser URL split.** Sign-in completes, and oauth2-proxy accepts the `iss` of the redeemed token. *Not checked yet: needs the nginx stack (phase 13).*
+1. **The internal/browser URL split.** ✅ Sign-in completes through nginx for `sample-customer` and `sample-admin`, and oauth2-proxy accepts `iss = http://dev-idp:8080/<issuer>`. It needed `login.html` and the admin's extra audience (above). `sample-not-admin` gets oauth2-proxy's 403 at `/oauth2/admin/callback`.
 2. **The password grant** matches users via `requestParam: "username"`. ✅ `dev-token.sh customer|admin|not-admin` return tokens with the mapped claims (`iss = http://localhost:8099/<issuer>`).
 3. **Admin access token:** `groups` and `aud=api://default` are present in it, not just in the ID token. ✅ `groups: ["smd-admins"]` and `aud: api://default` (and `groups: []` for `sample-not-admin`). user-service exchanged them: `sample-customer` → `…c1` CUSTOMER, `sample-admin` → `…a1` ADMIN, `sample-not-admin` → 403.
 

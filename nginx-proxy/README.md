@@ -116,12 +116,19 @@ docker compose -f docker-compose.yml -f ../dev-idp/docker-compose.dev-idp.yml \
 
 Then open http://localhost:
 
-- "Sign in with Google" → type `sample-customer`.
-- `/admin` → type `sample-admin`. `sample-not-admin` is refused.
+- "Sign in with Google" → click `sample-customer`.
+- `/admin` → click `sample-admin`. `sample-not-admin` is refused (403 from oauth2-proxy).
 
 For API calls without a browser, use `../dev-idp/dev-token.sh customer|admin`.
 
 The routing rules in this folder were also checked while it was written, using fake login servers and a fake gateway: public browsing, guest and customer carts, customer-only and admin-only APIs, the CSRF rule, blocked paths, rate limiting, and stripping of forged headers.
+
+**Checked against the real gateway (phase 13, 2026-10-05, dev-idp):** browser sign-in as customer and admin, the `sample-not-admin` refusal, checkout from the cart with only the session cookie (HttpOnly, invisible to `document.cookie`), a customer session refused on `/api/admin/**` (401), CSRF on cart and restock calls, blocked paths (`/api/users/{id}`, `/api/fulfillments`, `/api/auth/dev-login`, `/actuator`, `/internal`, JWKS → 404), and rate limiting (429 from nginx with a ProblemDetail body, or from the gateway's per-user limiter). Two fixes came out of it:
+
+- `snippets/proxy-to-gateway.conf` hides the backend's `X-Frame-Options`, `X-Content-Type-Options` and `X-Correlation-Id`, since nginx sets them itself; before, each appeared twice.
+- The gateway got an explicit Resilience4j bulkhead (see `platform/api-gateway/README.md`); its default of 25 concurrent calls per route returned `503` during bursts that nginx let through.
+
+**Not checked yet with real Google and Okta** (deferred; see "Next steps" in the root `README.md`). Nothing in the code changes for that: fill in `.env`, start the stack without the dev-idp override, and start the gateway and user-service with `GOOGLE_CLIENT_ID` and `OKTA_ISSUER_URI`.
 
 ## Troubleshooting
 

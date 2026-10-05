@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<!--
+  Login page of the dev identity provider (dev-idp.json: loginPagePath). LOCAL DEVELOPMENT ONLY.
+
+  Why a custom page: the mock server's "requestMappings" only match parameters of the TOKEN request, so for a
+  browser sign-in (authorization code flow) they never apply; the login form itself is what sets the claims. Each
+  button below posts the sample user's username AND claims (the same claims dev-idp.json gives dev-token.sh), so
+  signing in through nginx produces the same tokens as Google/Okta would: email, email_verified, name, groups, aud.
+-->
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Dev sign-in (mock)</title>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 34rem; margin: 3rem auto; padding: 0 1rem; color: #222; }
+        h1 { font-size: 1.4rem; } p.note { color: #666; font-size: .9rem; }
+        form.user { margin: .6rem 0; }
+        form.user button { width: 100%; padding: .8rem; font-size: 1rem; text-align: left; cursor: pointer;
+                           border: 1px solid #bbb; border-radius: .4rem; background: #f7f7f7; }
+        form.user button:hover { background: #eaeaea; }
+        details { margin-top: 2rem; } textarea, input { width: 100%; box-sizing: border-box; margin: .3rem 0; }
+    </style>
+</head>
+<body>
+<h1>Dev sign-in <small>(mock identity provider)</small></h1>
+<p class="note">Local development only. Pick a sample user; no password.</p>
+
+<div data-issuer="dev-customer">
+    <form class="user" method="post">
+        <input type="hidden" name="username" value="sample-customer">
+        <input type="hidden" name="claims"
+               value='{"email":"customer@demo.local","email_verified":true,"name":"Demo Customer","aud":["dev-client"]}'>
+        <button type="submit"><b>sample-customer</b> — acts like a Google customer</button>
+    </form>
+</div>
+
+<div data-issuer="dev-admin">
+    <form class="user" method="post">
+        <input type="hidden" name="username" value="sample-admin">
+        <input type="hidden" name="claims"
+               value='{"email":"admin@demo.local","email_verified":true,"name":"Demo Admin","groups":["smd-admins"],"aud":["api://default"]}'>
+        <button type="submit"><b>sample-admin</b> — an Okta admin in smd-admins</button>
+    </form>
+    <form class="user" method="post">
+        <input type="hidden" name="username" value="sample-not-admin">
+        <input type="hidden" name="claims"
+               value='{"email":"not-admin@demo.local","email_verified":true,"name":"Not An Admin","groups":[],"aud":["api://default"]}'>
+        <button type="submit"><b>sample-not-admin</b> — an Okta user without the admin group (refused)</button>
+    </form>
+</div>
+
+<details>
+    <summary>Another subject (advanced)</summary>
+    <form method="post">
+        <input type="text" name="username" placeholder="subject">
+        <textarea name="claims" rows="6" placeholder='{"email":"x@demo.local","email_verified":true}'></textarea>
+        <button type="submit">Sign in</button>
+    </form>
+</details>
+
+<script>
+    // show only the users of the issuer being signed into (/dev-customer/authorize or /dev-admin/authorize)
+    const issuer = location.pathname.split('/')[1];
+    document.querySelectorAll('[data-issuer]').forEach(el => { el.hidden = el.dataset.issuer !== issuer; });
+</script>
+</body>
+</html>

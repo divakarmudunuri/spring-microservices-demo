@@ -24,6 +24,8 @@ services:
       LOG_LEVEL: INFO
     volumes:
       - ../dev-idp/dev-idp.json:/config/dev-idp.json:ro
+      # one-click sample users that also send their claims (see the comment in login.html)
+      - ../dev-idp/login.html:/config/login.html:ro
     ports:
       # the browser's login page, plus the gateway / dev-token.sh on your machine
       - "${DEV_IDP_PORT:-8099}:8080"
@@ -88,6 +90,8 @@ services:
       - --email-domain=*
       - --oidc-groups-claim=groups
       - --allowed-group=smd-admins
+      # the dev admin's tokens carry aud=api://default (like Okta's access token); accept it on the ID token too
+      - --oidc-extra-audience=api://default
       - --upstream=static://202
       - --proxy-prefix=/oauth2/admin
       - --redirect-url=${PUBLIC_BASE_URL:-http://localhost}/oauth2/admin/callback
