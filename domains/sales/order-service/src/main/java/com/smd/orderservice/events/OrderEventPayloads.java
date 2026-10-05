@@ -2,6 +2,7 @@ package com.smd.orderservice.events;
 
 import com.smd.orderservice.order.ShippingAddress;
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,6 +34,9 @@ public final class OrderEventPayloads {
 
     /** For ORDER_REJECTED and ORDER_FAILED. */
     public record OrderRejected(String reason, String detail) {
+    }
+
+    public record OrderDelivered(Instant deliveredAt) {
     }
 
     /** On {@code inventory-events}: the new exact quantity (only product-service's level is public). */

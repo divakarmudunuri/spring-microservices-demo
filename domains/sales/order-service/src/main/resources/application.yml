@@ -4,6 +4,19 @@ server:
 spring:
   kafka:
     bootstrap-servers: localhost:9092
+    consumer:
+      group-id: order-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # map every record to this service's own class; never trust the producer's type headers
+        spring.json.value.default.type: com.smd.orderservice.events.ConsumedEvent
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.smd.orderservice.events
+    listener:
+      ack-mode: record   # commit each offset after the listener's transaction committed
     producer:
       # the outbox payload is already the JSON envelope; the key is the order (or product) id
       key-serializer: org.apache.kafka.common.serialization.StringSerializer
@@ -153,6 +166,7 @@ management:
         include: health, info, metrics, prometheus
 
 kafka:
+  consumed-topics: fulfillment-events,shipping-events
   topics:
     partitions: 3
     replicas: 1

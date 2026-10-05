@@ -1,0 +1,6 @@
+demo:
+  simulation:
+    # fast, so a demo order reaches PACKED in a few seconds; raise failure-rate to see the refund path
+    step-delay: 2s
+    failure-rate: 0.0
+    poll-interval: 500ms

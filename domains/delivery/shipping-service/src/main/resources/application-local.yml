@@ -1,0 +1,5 @@
+demo:
+  simulation:
+    # fast, so a demo order is delivered within a few seconds of being packed
+    step-delay: 2s
+    poll-interval: 500ms

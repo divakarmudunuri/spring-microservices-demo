@@ -1,5 +1,6 @@
 -- =============================================================================
 -- 04-fulfillment_db.sql  (fulfillment-service)  →  Flyway: fulfillment-service V1__init.sql
+-- The current model: V1__init.sql + V2__fulfillment_shipping_address.sql (shipping_address).
 -- =============================================================================
 
 CREATE OR REPLACE FUNCTION set_updated_at() RETURNS trigger AS $$
@@ -15,6 +16,7 @@ CREATE TABLE fulfillments (
     user_id         UUID          NOT NULL,                     -- from the event envelope
     status          VARCHAR(10)   NOT NULL,
     warehouse_code  VARCHAR(20)   NOT NULL,
+    shipping_address JSONB        NOT NULL,                     -- copied from ORDER_CONFIRMED (added in V2)
     failure_reason  VARCHAR(200),
     next_step_at    TIMESTAMPTZ,                                -- when the simulator should advance it
     version         BIGINT        NOT NULL DEFAULT 0,

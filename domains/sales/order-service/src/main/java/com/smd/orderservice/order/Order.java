@@ -95,6 +95,20 @@ public class Order {
         this.rejectionReason = reason;
     }
 
+    /**
+     * Applies a delivery update (IN_FULFILLMENT, SHIPPED, DELIVERED) only if it moves the order forward.
+     * Events from different topics can arrive out of order; a late one is ignored.
+     *
+     * @return false if the update was ignored
+     */
+    public boolean advanceTo(OrderStatus target) {
+        if (!status.canAdvanceTo(target)) {
+            return false;
+        }
+        status = target;
+        return true;
+    }
+
     private void requireStatus(OrderStatus expected) {
         if (status != expected) {
             throw new IllegalStateException("Order " + id + " is " + status + ", expected " + expected);

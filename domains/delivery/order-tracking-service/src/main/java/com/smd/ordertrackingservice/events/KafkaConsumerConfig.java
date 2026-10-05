@@ -33,11 +33,11 @@ public class KafkaConsumerConfig {
      * Boot plugs this bean into the default listener container factory.
      */
     @Bean
-    DefaultErrorHandler kafkaErrorHandler(KafkaTemplate<String, Object> deadLetterTemplate) {
+    DefaultErrorHandler kafkaErrorHandler(ProducerFactory<?, ?> bootProducerFactory) {
         ExponentialBackOff backOff = new ExponentialBackOff(500, 2.0);
         backOff.setMaxAttempts(2);   // retries after the first attempt → 3 attempts
         // explicit name: the recoverer's own default suffix differs between Spring Kafka versions (".DLT" / "-dlt")
-        var recoverer = new DeadLetterPublishingRecoverer(deadLetterTemplate,
+        var recoverer = new DeadLetterPublishingRecoverer(deadLetterTemplate(bootProducerFactory),
                 (record, failure) -> new TopicPartition(deadLetterTopic(record.topic()), record.partition()));
         DefaultErrorHandler handler = new DefaultErrorHandler(recoverer, backOff);
         handler.addNotRetryableExceptions(InvalidEventException.class);
@@ -45,11 +45,11 @@ public class KafkaConsumerConfig {
     }
 
     /**
-     * Publishes to the DLTs. A record that failed in the listener has an {@link EventEnvelope} value (sent as
-     * JSON); one that failed deserialization has only its raw bytes (sent unchanged).
+     * Publishes to the DLTs. Failed records keep their value: a deserialized envelope as JSON, undeserializable
+     * raw bytes unchanged. Deliberately not a bean: a KafkaTemplate bean of our own would make Spring Boot
+     * skip its default one (which the outbox relay uses).
      */
-    @Bean
-    KafkaTemplate<String, Object> deadLetterTemplate(ProducerFactory<?, ?> bootProducerFactory) {
+    private static KafkaTemplate<String, Object> deadLetterTemplate(ProducerFactory<?, ?> bootProducerFactory) {
         Map<Class<?>, Serializer<?>> byType = new LinkedHashMap<>();
         byType.put(byte[].class, new ByteArraySerializer());
         byType.put(Object.class, new JsonSerializer<>());

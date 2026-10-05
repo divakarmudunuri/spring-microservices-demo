@@ -53,4 +53,8 @@ Watch it (`local` profile): `curl localhost:8081/actuator/circuitbreakers`, `/ac
 
 `outbox/OutboxRelay` polls `outbox_event` every 500 ms (`SELECT … FOR UPDATE SKIP LOCKED LIMIT 100`, oldest first), sends each row with `KafkaTemplate.send(…).get(timeout)` (key = order id, or product id on `inventory-events`; header `eventType`), and marks it `published_at`. The first failure increments `attempts` and stops the batch, so events are never published out of order. Delivery is at least once. Producer: `acks=all`, idempotence on. Topics `order-events` and `inventory-events` are created on startup (`outbox/KafkaTopicsConfig`). Metrics: `outbox.pending`, `outbox.publish.failures`.
 
+## Following delivery (phase 7)
+
+`delivery/DeliveryEventsListener` consumes `fulfillment-events` and `shipping-events` (group `order-service`): `FULFILLMENT_RECEIVED` → `IN_FULFILLMENT`, `SHIPMENT_PICKED_UP` → `SHIPPED`, `SHIPMENT_DELIVERED` → `DELIVERED` + an `ORDER_DELIVERED` event. `delivery/OrderProgressService` applies them in one transaction with the `processed_event` marker; the status only moves forward (`OrderStatus.canAdvanceTo`), so a late event is ignored. `FULFILLMENT_FAILED` (refund + restock) comes in phase 8.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

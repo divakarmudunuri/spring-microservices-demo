@@ -4,37 +4,32 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.testcontainers.service.connection.ServiceConnection;
 import org.springframework.jdbc.core.JdbcTemplate;
-import org.testcontainers.containers.PostgreSQLContainer;
-import org.testcontainers.junit.jupiter.Container;
-import org.testcontainers.junit.jupiter.Testcontainers;
 
-/** Applies V1 (schema) to a real Postgres 16. */
-@SpringBootTest(properties = "eureka.client.enabled=false")
-@Testcontainers
-class FulfillmentDbMigrationTest {
-
-    @Container
-    @ServiceConnection
-    static PostgreSQLContainer<?> postgres = new PostgreSQLContainer<>("postgres:16.15")
-            .withDatabaseName("fulfillment_db")
-            .withUsername("fulfillment_svc");
+/** Applies V1 (schema) and V2 (shipping_address) to a real Postgres 16. */
+class FulfillmentDbMigrationTest extends FulfillmentIntegrationTest {
 
     @Autowired
-    JdbcTemplate jdbc;
+    JdbcTemplate jdbcTemplate;
 
     @Test
     void migrationsSucceed() {
-        assertThat(jdbc.queryForList(
+        assertThat(jdbcTemplate.queryForList(
                 "SELECT version FROM flyway_schema_history WHERE success ORDER BY installed_rank", String.class))
-                .containsExactly("1");
+                .containsExactly("1", "2");
+    }
+
+    @Test
+    void fulfillmentsKeepTheShippingAddress() {
+        assertThat(jdbcTemplate.queryForObject("""
+                SELECT data_type || ' ' || is_nullable FROM information_schema.columns
+                 WHERE table_name = 'fulfillments' AND column_name = 'shipping_address'""", String.class))
+                .isEqualTo("jsonb NO");
     }
 
     @Test
     void allTablesExist() {
-        assertThat(jdbc.queryForList(
+        assertThat(jdbcTemplate.queryForList(
                 "SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'", String.class))
                 .contains("fulfillments", "fulfillment_items", "outbox_event", "processed_event");
     }

@@ -52,7 +52,9 @@ Within one transaction the events are written in the order above (`INVENTORY_RES
 
 `ORDER_CONFIRMED` carries everything downstream services need (items, prices, address), so fulfillment and shipping never call order-service back.
 
-Still to come: `PAYMENT_REFUNDED`, `INVENTORY_RESTORED`, `ORDER_CANCELLED` (phase 8, compensation), `ORDER_DELIVERED` (phase 7), `DELIVERY_ACKNOWLEDGED` (phase 11).
+| `ORDER_DELIVERED` | order-service applied `SHIPMENT_DELIVERED` (order is `DELIVERED`) | `deliveredAt` |
+
+Still to come: `PAYMENT_REFUNDED`, `INVENTORY_RESTORED`, `ORDER_CANCELLED` (phase 8, compensation), `DELIVERY_ACKNOWLEDGED` (phase 11).
 
 ## `inventory-events` (order-service)
 
@@ -62,6 +64,41 @@ Still to come: `PAYMENT_REFUNDED`, `INVENTORY_RESTORED`, `ORDER_CANCELLED` (phas
 
 `orderId` and `userId` are null. product-service turns the quantity into a public level (`IN_STOCK` / `LOW_STOCK` / `OUT_OF_STOCK`) and ignores events older than the last one it applied. The exact quantity never leaves the backend.
 
-## `fulfillment-events`, `shipping-events`
+## `fulfillment-events` (fulfillment-service)
 
-Defined in phase 7.
+Key and `orderId` are the order id; `userId` is copied from the `ORDER_CONFIRMED` that started the fulfillment. Written through fulfillment-service's own outbox.
+
+| Event | When | Payload |
+|---|---|---|
+| `FULFILLMENT_RECEIVED` | `ORDER_CONFIRMED` consumed, fulfillment created | `fulfillmentId`, `warehouseCode`, `items: [{productId, quantity}]` |
+| `FULFILLMENT_PICKING` | simulator: picking started | `fulfillmentId` |
+| `FULFILLMENT_PACKED` | simulator: ready to ship | `fulfillmentId`, `warehouseCode`, `shippingAddress: {fullName, line1, line2, city, state, postalCode, country, phone}` |
+| `FULFILLMENT_FAILED` | simulator: failed (rate `demo.simulation.failure-rate`); triggers the refund + restock in order-service (phase 8) | `fulfillmentId`, `reason` |
+
+`FULFILLMENT_PACKED` carries the address so shipping-service never has to ask for it.
+
+## `shipping-events` (shipping-service)
+
+Key and `orderId` are the order id; `userId` is copied from `FULFILLMENT_PACKED`. Written through shipping-service's own outbox.
+
+| Event | When | Payload |
+|---|---|---|
+| `SHIPMENT_CREATED` | `FULFILLMENT_PACKED` consumed, label created | `shipmentId`, `trackingNumber`, `carrier`, `estimatedDelivery` (date) |
+| `SHIPMENT_PICKED_UP` | simulator | `shipmentId`, `trackingNumber` |
+| `SHIPMENT_IN_TRANSIT` | simulator | `shipmentId`, `trackingNumber` |
+| `SHIPMENT_OUT_FOR_DELIVERY` | simulator | `shipmentId`, `trackingNumber` |
+| `SHIPMENT_DELIVERED` | simulator | `shipmentId`, `trackingNumber`, `deliveredAt` |
+
+## Who reacts to what
+
+| Event | fulfillment | shipping | order-service | tracking |
+|---|---|---|---|---|
+| `ORDER_CONFIRMED` | creates a fulfillment | | | timeline |
+| `FULFILLMENT_RECEIVED` | | | order → `IN_FULFILLMENT` | timeline |
+| `FULFILLMENT_PACKED` | | creates a shipment | | timeline |
+| `FULFILLMENT_FAILED` | | | refund + restock (phase 8) | timeline |
+| `SHIPMENT_PICKED_UP` | | | order → `SHIPPED` | timeline |
+| `SHIPMENT_DELIVERED` | | | order → `DELIVERED`, publishes `ORDER_DELIVERED` | timeline |
+| any other | | | | timeline |
+
+order-service's order status only moves forward: an event that would move it back (e.g. a late `FULFILLMENT_RECEIVED` after `SHIPMENT_PICKED_UP`) is ignored.

@@ -13,6 +13,7 @@ erDiagram
         UUID user_id
         VARCHAR status "RECEIVED / PICKING / PACKED / FAILED"
         VARCHAR warehouse_code
+        JSONB shipping_address "from ORDER_CONFIRMED (V2)"
         VARCHAR failure_reason
         TIMESTAMPTZ next_step_at "simulator"
         BIGINT version
@@ -44,7 +45,7 @@ Schemas: [`sql/04-fulfillment_db.sql`](sql/04-fulfillment_db.sql), [`sql/05-ship
 
 | Table | Purpose | Key rules |
 |---|---|---|
-| `fulfillments` | One per confirmed order | Unique `order_id` (a redelivered `ORDER_CONFIRMED` can't create a second one); `failure_reason` set exactly when `FAILED`; `next_step_at` tells the simulator when to advance it |
+| `fulfillments` | One per confirmed order | Unique `order_id` (a redelivered `ORDER_CONFIRMED` can't create a second one); `failure_reason` set exactly when `FAILED`; `next_step_at` tells the simulator when to advance it; `shipping_address` (added in V2) is copied from `ORDER_CONFIRMED` and passed on in `FULFILLMENT_PACKED` |
 | `fulfillment_items` | What to pick | Unique `(fulfillment_id, product_id)` |
 | `shipments` | One per packed order | Unique `order_id` and `tracking_number`; `user_id` copied from the event so customers can only see their own; `delivered_at` set exactly when `DELIVERED` |
 

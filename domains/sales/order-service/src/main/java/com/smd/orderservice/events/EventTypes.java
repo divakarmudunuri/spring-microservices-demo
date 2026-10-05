@@ -10,6 +10,7 @@ public final class EventTypes {
     public static final String ORDER_REJECTED = "ORDER_REJECTED";
     public static final String ORDER_FAILED = "ORDER_FAILED";
     public static final String INVENTORY_CHANGED = "INVENTORY_CHANGED";
+    public static final String ORDER_DELIVERED = "ORDER_DELIVERED";
 
     private EventTypes() {
     }

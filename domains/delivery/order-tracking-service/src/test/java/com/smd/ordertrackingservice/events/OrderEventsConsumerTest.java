@@ -131,6 +131,28 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
     }
 
     @Test
+    void eventsFromAllThreeTopicsMakeOneTimelineEvenOutOfOrder() throws Exception {
+        UUID orderId = UUID.randomUUID();
+        publishTo("order-events", orderId, event(orderId, "ORDER_CONFIRMED", "2026-10-04T18:55:00.100Z", "{\"items\":[{}]}"));
+        // shipping's event is processed before fulfillment's: different topics, no ordering between them
+        publishTo("shipping-events", orderId, event(orderId, "SHIPMENT_IN_TRANSIT", "2026-10-04T18:55:30.000Z",
+                "{\"trackingNumber\":\"SMDTEST\"}").replace("order-service", "shipping-service"));
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+                .andExpect(jsonPath("$.currentStatus").value("SHIPMENT_IN_TRANSIT")));
+        publishTo("fulfillment-events", orderId, event(orderId, "FULFILLMENT_PACKED", "2026-10-04T18:55:10.000Z", "{}")
+                .replace("order-service", "fulfillment-service"));
+
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+                .andExpect(jsonPath("$.timeline", hasSize(3))));
+        mvc.perform(get("/api/tracking/orders/{id}", orderId))
+                .andExpect(jsonPath("$.currentStatus").value("SHIPMENT_IN_TRANSIT"))          // not moved back
+                .andExpect(jsonPath("$.timeline[*].status").value(contains(
+                        "ORDER_CONFIRMED", "FULFILLMENT_PACKED", "SHIPMENT_IN_TRANSIT")))     // time order
+                .andExpect(jsonPath("$.timeline[1].source").value("fulfillment-service"))
+                .andExpect(jsonPath("$.timeline[2].details.trackingNumber").value("SMDTEST"));
+    }
+
+    @Test
     void unknownOrderIsNotFound() throws Exception {
         mvc.perform(get("/api/tracking/orders/{id}", UUID.randomUUID()))
                 .andExpect(status().isNotFound())
@@ -139,7 +161,11 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
     }
 
     private static void publish(UUID key, String json) {
-        PRODUCER.send(new ProducerRecord<>("order-events", key.toString(), json));
+        publishTo("order-events", key, json);
+    }
+
+    private static void publishTo(String topic, UUID key, String json) {
+        PRODUCER.send(new ProducerRecord<>(topic, key.toString(), json));
         PRODUCER.flush();
     }
 

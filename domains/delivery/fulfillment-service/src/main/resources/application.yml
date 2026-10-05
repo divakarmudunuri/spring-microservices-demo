@@ -2,6 +2,31 @@ server:
   port: 8084
 
 spring:
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: fulfillment-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        spring.deserializer.value.delegate.class: org.springframework.kafka.support.serializer.JsonDeserializer
+        # map every record to this service's own envelope class; never trust the producer's type headers
+        spring.json.value.default.type: com.smd.fulfillmentservice.events.EventEnvelope
+        spring.json.use.type.headers: false
+        spring.json.trusted.packages: com.smd.fulfillmentservice.events
+    producer:
+      # the outbox payload is already the JSON envelope
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      properties:
+        enable.idempotence: true
+        max.block.ms: 5000
+        request.timeout.ms: 5000
+        delivery.timeout.ms: 10000
+    listener:
+      ack-mode: record   # commit each offset after the listener's transaction committed
   mvc:
     problemdetails:
       enabled: true   # framework errors (400, 404, 405, ...) as RFC 7807 too
@@ -24,3 +49,24 @@ eureka:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+kafka:
+  consumed-topics: order-events
+  topics:
+    partitions: 3
+    replicas: 1
+
+outbox:
+  relay:
+    enabled: true
+    interval: 500ms
+    batch-size: 100
+    send-timeout: 10s
+
+demo:
+  simulation:
+    enabled: true
+    step-delay: 10s
+    failure-rate: 0.0
+    poll-interval: 1s
+    warehouse-code: WH-DETROIT-1

@@ -17,9 +17,9 @@ CQRS read model: records every event of every order as a timeline, from `ORDER_I
 - Consumes `order-events`, `fulfillment-events`, `shipping-events`
 - Idempotent conditional writes; status only moves forward
 
-## Implemented so far (phase 6)
+## Implemented so far (phases 6–7)
 
-- Consumes `order-events` (consumer group `order-tracking-service`, from the earliest offset); `fulfillment-events` and `shipping-events` follow in phase 7.
+- Consumes `order-events`, `fulfillment-events` and `shipping-events` (consumer group `order-tracking-service`, from the earliest offset) into one timeline per order. Events from different topics can arrive in any order; the timeline is sorted by `occurredAt` and the status only moves forward.
 - `GET /api/tracking/orders/{orderId}`: current status + timeline (one DynamoDB `Query`). `GET /api/tracking/orders/{orderId}/latest`: current status only (strongly consistent `GetItem`). Ownership checks arrive in phase 11.
 - Where to look:
   - `persistence/TrackingRepository`: the two-action `TransactWriteItems` (idempotent event Put + forward-only STATE Update) and how cancellation reasons are read

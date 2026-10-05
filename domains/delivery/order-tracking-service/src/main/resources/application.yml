@@ -31,8 +31,8 @@ spring:
       ack-mode: record   # commit each record's offset after the listener returned successfully
 
 tracking:
-  # every order-related topic; fulfillment-events and shipping-events are added in phase 7
-  topics: order-events
+  # every order-related topic (not inventory-events)
+  topics: order-events,fulfillment-events,shipping-events
   dynamodb:
     table-name: order_tracking
     region: us-east-1

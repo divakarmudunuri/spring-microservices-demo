@@ -6,6 +6,7 @@ erDiagram
         UUID user_id
         VARCHAR status "RECEIVED / PICKING / PACKED / FAILED"
         VARCHAR warehouse_code
+        JSONB shipping_address "from ORDER_CONFIRMED (V2)"
         VARCHAR failure_reason
         TIMESTAMPTZ next_step_at "simulator"
         BIGINT version
