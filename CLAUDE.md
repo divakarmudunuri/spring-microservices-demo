@@ -42,7 +42,7 @@ It is a learning and interview-portfolio project. Favor clarity and well-named c
 | Security | Spring Security 6 (from Boot 3.5). **Gateway:** reactive multi-issuer OAuth2 **resource server** (Google, Okta, and in `local` the dev identity provider) + token exchange. **user-service:** just-in-time user registration, issues **internal** RS256 JWTs (`spring-security-oauth2-jose`, `NimbusJwtEncoder`), publishes a JWKS. No passwords anywhere: in `local`, the sample users sign in through a mock OIDC server (`dev-idp/`). **Other services:** servlet resource servers trusting only the internal issuer. See 6.11. |
 | Identity providers | **Google** (OIDC) for customers; **Okta** Integrator Free Plan (OIDC, custom authorization server `default`, group `smd-admins`) for admins. Setup guides: `nginx-proxy/README.md`, `okta-login-setup/README.md`. |
 | Dev identity provider | **mock-oauth2-server 3.0.3** (`ghcr.io/navikt/mock-oauth2-server`; there is no 3.1.x) in `dev-idp/`: stands in for Google and Okta in `local`, so the sample users go through the real sign-in path. |
-| Edge proxy | **nginx 1.28** (official image) + **oauth2-proxy v7.15** (two instances: Google, Okta) + Redis session store, all in `nginx-proxy/docker-compose.yml`. |
+| Edge proxy | **nginx 1.28** (official image, extended by `nginx-proxy/Dockerfile` to build and host the Angular app) + **oauth2-proxy v7.15** (two instances: Google, Okta) + Redis session store, all in `nginx-proxy/docker-compose.yml`. |
 | Testing | JUnit 5, AssertJ, Testcontainers (PostgreSQL, Kafka, DynamoDB Local via `GenericContainer`), WireMock for Feign client tests, Awaitility for async assertions |
 | Caching | Caffeine (Spring Cache) in product-service, plus HTTP `Cache-Control` / `ETag` on public catalog responses |
 | Frontend | **Angular** (current stable major, standalone components, TypeScript strict mode) in `frontend/`, built with npm, **not** part of the Gradle build. Confirm the Angular version with the user before scaffolding. |
@@ -60,7 +60,7 @@ Services are grouped by **business domain** (`domains/`), with infrastructure (`
 
 | Group | Module | Folder | Port | Role | Database |
 |---|---|---|---|---|---|
-| edge | `nginx-proxy` | `nginx-proxy/` | 80 | Serves the Angular app, runs Google/Okta login via oauth2-proxy, forwards `/api/**` to the gateway (6.11) | Redis (sessions) |
+| edge | `nginx-proxy` | `nginx-proxy/` | 80 | Builds and hosts the Angular app (in its image), runs Google/Okta login via oauth2-proxy, forwards `/api/**` to the gateway (6.11) | Redis (sessions) |
 | platform | `discovery-server` | `platform/discovery-server/` | 8761 | Eureka server | — |
 | platform | `api-gateway` | `platform/api-gateway/` | 8080 | Behind nginx. Validates Google/Okta tokens, **exchanges them for internal JWTs**, role-based route rules, routing, resilience | — |
 | experience | `storefront-bff` | `experience/storefront-bff/` | 8088 | Backend-for-frontend: composes home-page data in parallel; no data of its own | — |
@@ -71,7 +71,7 @@ Services are grouped by **business domain** (`domains/`), with infrastructure (`
 | delivery | `fulfillment-service` | `domains/delivery/fulfillment-service/` | 8084 | Picks and packs confirmed orders (Kafka-driven) | `fulfillment_db` |
 | delivery | `shipping-service` | `domains/delivery/shipping-service/` | 8085 | Creates shipments and simulates delivery (Kafka-driven) | `shipping_db` |
 | delivery | `order-tracking-service` | `domains/delivery/order-tracking-service/` | 8086 | Consumes **all** order-related events and serves the timeline | DynamoDB table `order_tracking` |
-| UI | `frontend` | `frontend/` | served by nginx on 80 | Angular storefront + admin screens (`/admin`) | — |
+| UI | `frontend` | `frontend/` | built into the nginx image, served on 80 | Angular storefront + admin screens (`/admin`) | — |
 
 Why these groups:
 
@@ -113,7 +113,7 @@ spring-microservices-demo/
 ├── scripts/
 │   └── generate-dev-keys.sh      # creates the local JWT RSA key pair in .local/keys/ (git-ignored)
 ├── data-model/                   # REVIEWED schemas, seed data, diagrams, SQL tests (section 4)
-├── nginx-proxy/                  # nginx + oauth2-proxy (Google, Okta) + compose — written and tested (6.11)
+├── nginx-proxy/                  # nginx (Dockerfile: builds + hosts the Angular app) + oauth2-proxy (Google, Okta) + compose (6.11)
 ├── okta-login-setup/             # guide: Okta account, admin group, app, securing /admin
 ├── dev-idp/                      # mock OIDC server standing in for Google/Okta so the sample users sign in via nginx (local only)
 ├── docker/
@@ -594,8 +594,9 @@ Goal: anyone can browse products on the home page without logging in, add produc
 - BFF: home page with product-service slowed by the chaos toggle shows parallel timing; product-service down → degraded response.
 
 **Frontend (`frontend/`, Angular):**
-- Scaffold with the Angular CLI inside `frontend/` (project name **`storefront`**, so the build lands in `frontend/dist/storefront/browser`, which nginx serves). Standalone components, routing, strict TypeScript, SCSS.
-- **Day-to-day dev:** `npx ng build --watch` + the nginx stack, at http://localhost (logins work). For pure UI work, `npm start` (4200) with `proxy.conf.json` forwarding `/api` and `/oauth2` to `http://localhost` (nginx) also works: cookies are per host, not per port.
+- Scaffold with the Angular CLI inside `frontend/` (project name **`storefront`**, so the build lands in `frontend/dist/storefront/browser`). Standalone components, routing, strict TypeScript, SCSS.
+- **Hosted by the edge nginx, in one container:** `nginx-proxy/Dockerfile` is a multi-stage build (`npm ci` + `ng build` on `frontend/`, passed in as the named build context `frontend`; then `nginx:1.28-alpine` with the build in `/usr/share/nginx/html`). There is no separate UI container. The nginx config stays mounted from `nginx-proxy/nginx/`; app changes need `docker compose up -d --build nginx`.
+- **Day-to-day dev:** `npx ng build --watch` + the edge stack with the `nginx-proxy/docker-compose.ui-watch.yml` override (mounts the local build over the built-in app), at http://localhost (logins work). For pure UI work, `npm start` (4200) with `proxy.conf.json` forwarding `/api` and `/oauth2` to `http://localhost` (nginx) also works: cookies are per host, not per port.
 - Pages:
   - **Home:** categories, featured products, new arrivals (from `/api/storefront/home`).
   - **Category / search:** paged product grid.
@@ -630,7 +631,7 @@ Goal: anyone can browse products on the home page without logging in, add produc
 
 Optionally add compose profiles to also run the services as containers (images built with `./gradlew bootBuildImage`).
 
-The **edge stack** is separate: `nginx-proxy/docker-compose.yml` (nginx on **port 80**, oauth2-proxy for Google and Okta behind compose profiles, Redis). Open the app at **http://localhost**. Its secrets go in `nginx-proxy/.env` (from `.env.example`, git-ignored). Setup: Google steps in `nginx-proxy/README.md`, Okta steps in `okta-login-setup/README.md`. **Without** Google/Okta accounts, add the `dev-idp/` override (mock OIDC server on **port 8099**; see `dev-idp/README.md`).
+The **edge stack** is separate: `nginx-proxy/docker-compose.yml` (nginx on **port 80**, oauth2-proxy for Google and Okta behind compose profiles, Redis). Its nginx image builds and hosts the Angular app (`nginx-proxy/Dockerfile`), so `up --build` is all the UI needs. Open the app at **http://localhost**. Its secrets go in `nginx-proxy/.env` (from `.env.example`, git-ignored). Setup: Google steps in `nginx-proxy/README.md`, Okta steps in `okta-login-setup/README.md`. **Without** Google/Okta accounts, add the `dev-idp/` override (mock OIDC server on **port 8099**; see `dev-idp/README.md`).
 
 Before the first run: `./scripts/generate-dev-keys.sh`.
 
@@ -645,7 +646,7 @@ Profiles: `local` (seed data, chaos toggles, fast simulation delays, 100% sampli
 docker compose -f docker/docker-compose.yml up -d
 ```
 
-Start order: infrastructure (compose) → discovery-server → user, product, fulfillment, shipping, tracking, cart services → order-service → storefront-bff → api-gateway → UI build (`cd frontend && npx ng build --watch`) → edge (`cd nginx-proxy && docker compose --profile google --profile okta up -d`, or with `-f ../dev-idp/docker-compose.dev-idp.yml --profile dev-idp` for the sample users) → http://localhost.
+Start order: infrastructure (compose) → discovery-server → user, product, fulfillment, shipping, tracking, cart services → order-service → storefront-bff → api-gateway → edge, which builds the UI into its nginx image (`cd nginx-proxy && docker compose --profile google --profile okta up -d --build`, or with `-f ../dev-idp/docker-compose.dev-idp.yml --profile dev-idp` for the sample users) → http://localhost.
 
 ## 9. Implementation phases
 

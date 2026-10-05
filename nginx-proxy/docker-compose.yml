@@ -6,6 +6,10 @@
 #   docker compose --profile google up -d                 # + customer login with Google
 #   docker compose --profile google --profile okta up -d  # + admin login with Okta
 #
+# nginx also hosts the Angular app: its image (./Dockerfile) builds ../frontend and serves
+# the result. After UI changes: docker compose up -d --build nginx. For a rebuild-on-save
+# loop, add docker-compose.ui-watch.yml (serves your `ng build --watch` output instead).
+#
 # The backend (api-gateway etc.) runs separately: on your machine with
 # `./gradlew bootRun` (default GATEWAY_UPSTREAM) or in the backend compose
 # stack (set GATEWAY_UPSTREAM=api-gateway:8080 and join its network).
@@ -15,7 +19,12 @@ name: smd-edge
 
 services:
   nginx:
-    image: nginx:1.28-alpine
+    # nginx:1.28-alpine + the Angular build (multi-stage, see ./Dockerfile)
+    build:
+      context: .
+      additional_contexts:
+        frontend: ../frontend
+    image: smd-edge-nginx:local
     ports:
       - "${NGINX_PORT:-80}:80"
     environment:
@@ -26,8 +35,6 @@ services:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - ./nginx/templates:/etc/nginx/templates:ro
       - ./nginx/snippets:/etc/nginx/snippets:ro
-      # the built Angular app (cd ../frontend && npx ng build --watch)
-      - ${UI_DIST:-../frontend/dist/storefront/browser}:/usr/share/nginx/html:ro
     extra_hosts:
       - "host.docker.internal:host-gateway"   # lets nginx reach the gateway on your machine (Linux)
     healthcheck:
