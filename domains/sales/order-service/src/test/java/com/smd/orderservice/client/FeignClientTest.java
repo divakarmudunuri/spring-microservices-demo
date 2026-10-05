@@ -13,6 +13,8 @@ import org.springframework.test.context.TestPropertySource;
 @TestPropertySource(properties = {
         "spring.cloud.openfeign.client.config.user-service.read-timeout=300",
         "spring.cloud.openfeign.client.config.product-service.read-timeout=300",
+        "spring.cloud.openfeign.client.config.shipping-service.read-timeout=300",
+        "spring.cloud.openfeign.client.config.order-tracking-service.read-timeout=300",
         "resilience4j.retry.configs.default.wait-duration=10ms",
         "resilience4j.circuitbreaker.configs.default.sliding-window-size=4",
         "resilience4j.circuitbreaker.configs.default.minimum-number-of-calls=4",

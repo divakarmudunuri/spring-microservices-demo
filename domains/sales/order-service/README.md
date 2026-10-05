@@ -63,4 +63,29 @@ Checkout needs no compensation: stock and payment are one local transaction. The
 
 See it: start fulfillment-service with `--demo.simulation.failure-rate=1.0` and place an order; ~4 s later stock and wallet are back and the tracking timeline ends in `ORDER_CANCELLED`.
 
+## Order details: API composition (phase 9)
+
+`GET /api/orders/{id}/details` (own orders; `X-Demo-User-Id` until phase 11) loads the order locally, then calls four services **at the same time** on the `compositionExecutor` (`details/OrderDetailsService`):
+
+| Section | From | Feign client / adapter |
+|---|---|---|
+| `customer` (name, email) | user-service | `client/user` |
+| item names and descriptions | product-service (one batch call) | `client/product` |
+| `shipment` (tracking number, status, ETA) | shipping-service | `client/shipping` |
+| `tracking` (current status + timeline) | order-tracking-service | `client/tracking` |
+
+If a call fails or times out (after its retries, or past the 5 s deadline), its section is `null` and listed in `unavailableSections`, with `"degraded": true`; the response is still `200`. "Nothing yet" (no shipment, no tracking events: a 404 downstream) is just `null`, not degraded. Metric: `composition.duration` (tag `degraded`).
+
+**Parallel vs. sequential, live:** with chaos latency on user-service (+800 ms) and product-service (+600 ms), the call takes ~0.85 s, not 1.4 s. The `local` log shows it:
+
+```
+order details 1ffc…: 888 ms in total, in parallel (customer 888 ms, products 696 ms, shipping 336 ms, tracking 88 ms); unavailable: [shipping]
+```
+
+```bash
+curl -X POST localhost:8082/internal/chaos -H 'Content-Type: application/json' -d '{"latencyMs":800}'
+curl -X POST localhost:8083/internal/chaos -H 'Content-Type: application/json' -d '{"latencyMs":600}'
+curl -w '%{time_total}s\n' localhost:8081/api/orders/<orderId>/details -H 'X-Demo-User-Id: 00000000-0000-4000-8000-0000000000c1'
+```
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

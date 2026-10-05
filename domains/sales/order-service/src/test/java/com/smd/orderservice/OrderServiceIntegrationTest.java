@@ -67,6 +67,8 @@ public abstract class OrderServiceIntegrationTest {
     static void downstreamServices(DynamicPropertyRegistry registry) {
         registry.add("spring.cloud.discovery.client.simple.instances.user-service[0].uri", DOWNSTREAM::baseUrl);
         registry.add("spring.cloud.discovery.client.simple.instances.product-service[0].uri", DOWNSTREAM::baseUrl);
+        registry.add("spring.cloud.discovery.client.simple.instances.shipping-service[0].uri", DOWNSTREAM::baseUrl);
+        registry.add("spring.cloud.discovery.client.simple.instances.order-tracking-service[0].uri", DOWNSTREAM::baseUrl);
     }
 
     @Autowired
