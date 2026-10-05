@@ -24,3 +24,21 @@ eureka:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+auth:
+  jwt:
+    # created by ./scripts/generate-dev-keys.sh (relative to the repository root; bootRun runs from there)
+    private-key-location: ${AUTH_JWT_PRIVATE_KEY:file:.local/keys/jwt-private.pem}
+    public-key-location: ${AUTH_JWT_PUBLIC_KEY:file:.local/keys/jwt-public.pem}
+    ttl: 5m
+    ephemeral-key: false
+
+# External issuers whose tokens can be exchanged (the gateway trusts the same ones). Unset = not trusted.
+security:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+  okta:
+    issuer-uri: ${OKTA_ISSUER_URI:}           # https://<OKTA_DOMAIN>/oauth2/default
+    audience: api://default
+    admin-group: smd-admins

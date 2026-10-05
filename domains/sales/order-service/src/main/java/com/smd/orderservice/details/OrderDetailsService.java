@@ -51,9 +51,18 @@ public class OrderDetailsService {
         this.meters = meters;
     }
 
-    /** TODO(phase-11): userId from the JWT; an ADMIN variant reads any order. */
+    /** A customer's own order (404 for someone else's). The downstream calls relay the caller's JWT. */
     public OrderDetails getDetails(UUID orderId, UUID userId) {
-        Order order = orders.getOwnOrder(orderId, userId);   // local, and 404 for someone else's order
+        return compose(orders.getOwnOrder(orderId, userId));
+    }
+
+    /** Admins: any order. The downstream services accept the relayed ADMIN token for any order too. */
+    public OrderDetails getAnyDetails(UUID orderId) {
+        return compose(orders.getAnyOrder(orderId));
+    }
+
+    private OrderDetails compose(Order order) {
+        UUID orderId = order.getId();
         long start = System.nanoTime();
 
         // all four start now; none waits for another

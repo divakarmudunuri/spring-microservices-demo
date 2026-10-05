@@ -28,7 +28,8 @@ class UserDbMigrationTest extends PostgresIntegrationTest {
 
     @Test
     void seedIsApplied() {
-        assertThat(count("users")).isEqualTo(2);
+        assertThat(jdbc.queryForObject(   // other tests register Google/Okta users in the same database
+                "SELECT count(*) FROM users WHERE auth_provider = 'LOCAL'", Integer.class)).isEqualTo(2);
         assertThat(count("addresses")).isEqualTo(1);
     }
 

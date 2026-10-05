@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasSize;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -25,7 +26,9 @@ import org.apache.kafka.common.serialization.StringSerializer;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 
 /** End to end: raw JSON records on order-events → DynamoDB → the tracking API. */
 class OrderEventsConsumerTest extends TrackingIntegrationTest {
@@ -51,19 +54,19 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
         publish(orderId, event(orderId, "PAYMENT_CAPTURED", "2026-10-04T18:50:00.300Z", "{\"amount\":199.97,\"currency\":\"USD\"}"));
         publish(orderId, event(orderId, "ORDER_CONFIRMED", "2026-10-04T18:50:00.400123Z", "{\"items\":[{},{}],\"totalAmount\":199.97,\"currency\":\"USD\"}"));
 
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentStatus").value("ORDER_CONFIRMED"))
                 .andExpect(jsonPath("$.timeline", hasSize(4))));
 
-        mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.timeline[*].status").value(contains(
                         "ORDER_INITIATED", "INVENTORY_RESERVED", "PAYMENT_CAPTURED", "ORDER_CONFIRMED")))
                 .andExpect(jsonPath("$.timeline[0].source").value("order-service"))
                 .andExpect(jsonPath("$.timeline[0].details.itemCount").value("2"))
                 .andExpect(jsonPath("$.timeline[3].occurredAt").value("2026-10-04T18:50:00.400Z"))
                 .andExpect(jsonPath("$.timeline[3].details.totalAmount").value("199.97"));
-        mvc.perform(get("/api/tracking/orders/{id}/latest", orderId))
+        mvc.perform(get("/api/tracking/orders/{id}/latest", orderId).with(owner()))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.currentStatus").value("ORDER_CONFIRMED"));
     }
@@ -74,7 +77,7 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
         publish(orderId, event(orderId, "ORDER_INITIATED", "2026-10-04T18:51:00.100Z", "{\"items\":[{}]}"));
         publish(orderId, event(orderId, "ORDER_REJECTED", "2026-10-04T18:51:00.200Z", "{\"reason\":\"OUT_OF_STOCK\",\"detail\":\"Not enough stock\"}"));
 
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.currentStatus").value("ORDER_REJECTED"))
                 .andExpect(jsonPath("$.timeline[1].details.reason").value("OUT_OF_STOCK")));
     }
@@ -88,9 +91,9 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
         publish(orderId, event(orderId, "ORDER_FAILED", "2026-10-04T18:52:00.200Z", "{\"reason\":\"DEPENDENCY_UNAVAILABLE\"}"));
 
         // the last event is processed after both copies (same key → same partition, in order)
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.currentStatus").value("ORDER_FAILED")));
-        mvc.perform(get("/api/tracking/orders/{id}", orderId)).andExpect(jsonPath("$.timeline", hasSize(2)));
+        mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner())).andExpect(jsonPath("$.timeline", hasSize(2)));
     }
 
     @Test
@@ -99,7 +102,7 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
         publish(orderId, event(orderId, "SOMETHING_NEW", "2026-10-04T18:53:00.100Z", "{}"));
         publish(orderId, event(orderId, "ORDER_INITIATED", "2026-10-04T18:53:00.200Z", "{\"items\":[]}"));
 
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.timeline", hasSize(1)))
                 .andExpect(jsonPath("$.timeline[0].status").value("ORDER_INITIATED")));
     }
@@ -137,14 +140,14 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
         // shipping's event is processed before fulfillment's: different topics, no ordering between them
         publishTo("shipping-events", orderId, event(orderId, "SHIPMENT_IN_TRANSIT", "2026-10-04T18:55:30.000Z",
                 "{\"trackingNumber\":\"SMDTEST\"}").replace("order-service", "shipping-service"));
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.currentStatus").value("SHIPMENT_IN_TRANSIT")));
         publishTo("fulfillment-events", orderId, event(orderId, "FULFILLMENT_PACKED", "2026-10-04T18:55:10.000Z", "{}")
                 .replace("order-service", "fulfillment-service"));
 
-        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.timeline", hasSize(3))));
-        mvc.perform(get("/api/tracking/orders/{id}", orderId))
+        mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
                 .andExpect(jsonPath("$.currentStatus").value("SHIPMENT_IN_TRANSIT"))          // not moved back
                 .andExpect(jsonPath("$.timeline[*].status").value(contains(
                         "ORDER_CONFIRMED", "FULFILLMENT_PACKED", "SHIPMENT_IN_TRANSIT")))     // time order
@@ -154,10 +157,38 @@ class OrderEventsConsumerTest extends TrackingIntegrationTest {
 
     @Test
     void unknownOrderIsNotFound() throws Exception {
-        mvc.perform(get("/api/tracking/orders/{id}", UUID.randomUUID()))
+        mvc.perform(get("/api/tracking/orders/{id}", UUID.randomUUID()).with(owner()))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.type").value("/problems/tracking-not-found"));
-        mvc.perform(get("/api/tracking/orders/{id}/latest", UUID.randomUUID())).andExpect(status().isNotFound());
+        mvc.perform(get("/api/tracking/orders/{id}/latest", UUID.randomUUID()).with(owner())).andExpect(status().isNotFound());
+    }
+
+    @Test
+    void customersSeeOnlyTheirOwnOrdersAndAdminsSeeAll() throws Exception {
+        UUID orderId = UUID.randomUUID();   // owned by USER
+        publish(orderId, event(orderId, "ORDER_INITIATED", "2026-10-04T18:56:00.100Z", "{\"items\":[]}"));
+        await().atMost(Duration.ofSeconds(20)).untilAsserted(() -> mvc.perform(get("/api/tracking/orders/{id}", orderId).with(owner()))
+                .andExpect(status().isOk()));
+
+        RequestPostProcessor otherCustomer = jwt().jwt(j -> j.subject("00000000-0000-4000-8000-0000000000c2"))
+                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+        mvc.perform(get("/api/tracking/orders/{id}", orderId).with(otherCustomer)).andExpect(status().isNotFound());
+        mvc.perform(get("/api/tracking/orders/{id}/latest", orderId).with(otherCustomer)).andExpect(status().isNotFound());
+        RequestPostProcessor admin = jwt().jwt(j -> j.subject("00000000-0000-4000-8000-0000000000a1"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+        mvc.perform(get("/api/tracking/orders/{id}", orderId).with(admin)).andExpect(status().isOk());
+        mvc.perform(get("/api/tracking/orders/{id}", orderId)).andExpect(status().isUnauthorized());
+
+        // the admin path: any order for admins, nothing for customers
+        mvc.perform(get("/api/admin/tracking/orders/{id}", orderId).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.currentStatus").value("ORDER_INITIATED"));
+        mvc.perform(get("/api/admin/tracking/orders/{id}", orderId).with(owner())).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/tracking/orders/{id}", UUID.randomUUID()).with(admin)).andExpect(status().isNotFound());
+    }
+
+    private static RequestPostProcessor owner() {
+        return jwt().jwt(j -> j.subject(USER)).authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
     }
 
     private static void publish(UUID key, String json) {

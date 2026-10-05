@@ -96,6 +96,24 @@ public class Order {
     }
 
     /**
+     * The customer confirms they received the order: DELIVERED → COMPLETED.
+     *
+     * @return false if it was already acknowledged (a repeated call changes nothing)
+     * @throws IllegalStateException if the order isn't delivered yet
+     */
+    public boolean acknowledgeDelivery(Instant now) {
+        if (status == OrderStatus.COMPLETED) {
+            return false;
+        }
+        if (status != OrderStatus.DELIVERED) {
+            throw new IllegalStateException("Order " + id + " is " + status + "; only a DELIVERED order can be acknowledged");
+        }
+        status = OrderStatus.COMPLETED;
+        deliveryAcknowledgedAt = now;
+        return true;
+    }
+
+    /**
      * Compensation: fulfillment failed after payment. Only possible before the order left the warehouse.
      *
      * @return false if the order is already CANCELLED (a repeated FULFILLMENT_FAILED): nothing to do
@@ -165,6 +183,10 @@ public class Order {
 
     public String getIdempotencyKey() {
         return idempotencyKey;
+    }
+
+    public Instant getDeliveryAcknowledgedAt() {
+        return deliveryAcknowledgedAt;
     }
 
     public Instant getCreatedAt() {

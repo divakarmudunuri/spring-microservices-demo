@@ -66,6 +66,26 @@ public class Payment {
         return id;
     }
 
+    public UUID getOrderId() {
+        return orderId;
+    }
+
+    public UUID getUserId() {
+        return userId;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public Instant getRefundedAt() {
+        return refundedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
     public BigDecimal getAmount() {
         return amount;
     }

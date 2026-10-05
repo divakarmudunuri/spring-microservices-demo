@@ -43,7 +43,7 @@ class OrderDetailsTest extends FeignClientTest {
     void placeOrderAndStubAllFour() throws Exception {
         stubUser(CUSTOMER, "ACTIVE", true);
         DOWNSTREAM.stubFor(get(urlPathEqualTo("/api/products")).willReturn(okJson(PRODUCTS_JSON)));
-        String body = mvc.perform(post("/api/orders").header("X-Demo-User-Id", CUSTOMER).header("Idempotency-Key", "key-details")
+        String body = mvc.perform(post("/api/orders").with(customer(CUSTOMER)).header("Idempotency-Key", "key-details")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":\"" + EARBUDS + "\",\"quantity\":2},"
                                 + "{\"productId\":\"" + CHARGER + "\",\"quantity\":1}]}"))
@@ -144,12 +144,12 @@ class OrderDetailsTest extends FeignClientTest {
     @Test
     void someoneElsesOrderIsNotFound() throws Exception {
         mvc.perform(MockMvcRequestBuilders.get("/api/orders/{id}/details", orderId)
-                        .header("X-Demo-User-Id", "00000000-0000-4000-8000-0000000000c2"))
+                        .with(customer("00000000-0000-4000-8000-0000000000c2")))
                 .andExpect(status().isNotFound());
     }
 
     private ResultActions details() throws Exception {
-        return mvc.perform(MockMvcRequestBuilders.get("/api/orders/{id}/details", orderId).header("X-Demo-User-Id", CUSTOMER));
+        return mvc.perform(MockMvcRequestBuilders.get("/api/orders/{id}/details", orderId).with(customer(CUSTOMER)));
     }
 
     private void stubUserWithDelay(int delay) {

@@ -35,6 +35,19 @@ public class InventoryRepository {
                 .optional();
     }
 
+    /** Admin restock. @return the new quantity on hand, or empty if the product has no inventory row */
+    public Optional<Integer> restock(UUID productId, int quantity) {
+        return jdbc.sql("""
+                        UPDATE inventory
+                           SET quantity_on_hand = quantity_on_hand + :qty, version = version + 1
+                         WHERE product_id = :productId
+                        RETURNING quantity_on_hand""")
+                .param("qty", quantity)
+                .param("productId", productId)
+                .query(Integer.class)
+                .optional();
+    }
+
     /** Puts {@code quantity} units back. @return the new quantity on hand */
     public int increment(UUID productId, int quantity) {
         return jdbc.sql("""

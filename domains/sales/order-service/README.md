@@ -22,8 +22,8 @@ Checkout bounded context: orders, inventory, wallets, and payments in one databa
 
 ## Implemented so far (phase 4)
 
-- `POST /api/orders` with `{"items":[{"productId","quantity"}]}`, headers `Idempotency-Key` and, until phase 11, `X-Demo-User-Id`. `201` with the confirmed order, or a ProblemDetail carrying `orderId` and `reason`: `409` out of stock, `402` insufficient funds, `422` user inactive / product not found / no shipping address, `503` dependency unavailable.
-- `GET /api/orders/{id}` (own orders only; someone else's is `404`).
+- `POST /api/orders` with `{"items":[{"productId","quantity"}]}`, header `Idempotency-Key`; the customer is the JWT's `sub` (role `CUSTOMER`). `201` with the confirmed order, or a ProblemDetail carrying `orderId` and `reason`: `409` out of stock, `402` insufficient funds, `422` user inactive / product not found / no shipping address, `503` dependency unavailable.
+- `GET /api/orders/{id}` (own orders only; someone else's is `404`). An `ADMIN` token gets `403` on all customer endpoints.
 - Where to look:
   - `checkout/PlaceOrderUseCase`: the steps, in order
   - `checkout/CheckoutService`: the one `@Transactional` (stock → wallet → payment → CONFIRMED → outbox)
@@ -65,7 +65,7 @@ See it: start fulfillment-service with `--demo.simulation.failure-rate=1.0` and 
 
 ## Order details: API composition (phase 9)
 
-`GET /api/orders/{id}/details` (own orders; `X-Demo-User-Id` until phase 11) loads the order locally, then calls four services **at the same time** on the `compositionExecutor` (`details/OrderDetailsService`):
+`GET /api/orders/{id}/details` (own orders; the downstream calls relay the caller's JWT) loads the order locally, then calls four services **at the same time** on the `compositionExecutor` (`details/OrderDetailsService`):
 
 | Section | From | Feign client / adapter |
 |---|---|---|
@@ -85,7 +85,23 @@ order details 1ffc…: 888 ms in total, in parallel (customer 888 ms, products 6
 ```bash
 curl -X POST localhost:8082/internal/chaos -H 'Content-Type: application/json' -d '{"latencyMs":800}'
 curl -X POST localhost:8083/internal/chaos -H 'Content-Type: application/json' -d '{"latencyMs":600}'
-curl -w '%{time_total}s\n' localhost:8081/api/orders/<orderId>/details -H 'X-Demo-User-Id: 00000000-0000-4000-8000-0000000000c1'
+curl -w '%{time_total}s\n' localhost:8080/api/orders/<orderId>/details -H "Authorization: Bearer $(dev-idp/dev-token.sh customer)"
 ```
+
+## Security, wallet, admin (phase 11)
+
+Resource server for internal JWTs only (`security/SecurityConfig`); the customer is always the token's `sub` (`security/CurrentUser`), and someone else's order is a `404`. Feign relays the caller's token on every call, also from the `compose-` threads. Full design: `../../../docs/security.md`.
+
+| Endpoint | Who | Notes |
+|---|---|---|
+| `GET /api/orders?page=&size=` | CUSTOMER | own orders, newest first |
+| `POST /api/orders/{id}/acknowledge-delivery` | CUSTOMER, own | `DELIVERED` → `COMPLETED` + `DELIVERY_ACKNOWLEDGED`; `409` before delivery; repeat = same result |
+| `GET /api/wallet` | CUSTOMER | balance + 10 latest ledger entries; created (balance 0) the first time |
+| `POST /api/wallet/top-ups` `{amount}` | CUSTOMER | ≤ 1000.00; once per `Idempotency-Key` (unique ledger key) |
+| `GET /api/admin/orders?status=&userId=&from=&to=&page=&size=` | ADMIN | all orders, newest first |
+| `GET /api/admin/orders/{id}`, `/{id}/details` | ADMIN | any order; the aggregator relays the admin token |
+| `GET /api/admin/payments?status=&userId=` | ADMIN | paged, with count and sum per status |
+| `GET /api/admin/inventory` | ADMIN | exact stock, names from product-service (batches of 100 in parallel; still answers without names if it's down) |
+| `POST /api/admin/inventory/{productId}/restock` `{quantity, note}` | ADMIN | one transaction: stock + `stock_movements` (`RESTOCK`, `performed_by`) + `INVENTORY_CHANGED` |
 
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

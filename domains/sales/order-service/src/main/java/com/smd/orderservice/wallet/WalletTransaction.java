@@ -39,6 +39,15 @@ public class WalletTransaction {
         // for JPA
     }
 
+    public static WalletTransaction topUp(UUID userId, BigDecimal amount, String idempotencyKey) {
+        WalletTransaction tx = new WalletTransaction();
+        tx.userId = userId;
+        tx.type = "TOP_UP";
+        tx.amount = amount;
+        tx.idempotencyKey = idempotencyKey;
+        return tx;
+    }
+
     public static WalletTransaction refund(UUID userId, BigDecimal amount, UUID orderId) {
         WalletTransaction tx = new WalletTransaction();
         tx.userId = userId;

@@ -45,6 +45,32 @@ public class User {
         // for JPA
     }
 
+    /** Just-in-time registration on the first Google / Okta sign-in. */
+    public static User register(AuthProvider provider, String externalSubject, String email, String fullName,
+                                UserRole role, Instant now) {
+        User user = new User();
+        user.id = UUID.randomUUID();
+        user.authProvider = provider;
+        user.externalSubject = externalSubject;
+        user.email = email.toLowerCase();
+        user.fullName = fullName;
+        user.role = role;
+        user.status = UserStatus.ACTIVE;
+        user.lastLoginAt = now;
+        return user;
+    }
+
+    /** Every sign-in refreshes the profile from the identity provider. */
+    public void recordLogin(String email, String fullName, Instant now) {
+        if (email != null && !email.isBlank()) {
+            this.email = email.toLowerCase();
+        }
+        if (fullName != null && !fullName.isBlank()) {
+            this.fullName = fullName;
+        }
+        this.lastLoginAt = now;
+    }
+
     public UUID getId() {
         return id;
     }

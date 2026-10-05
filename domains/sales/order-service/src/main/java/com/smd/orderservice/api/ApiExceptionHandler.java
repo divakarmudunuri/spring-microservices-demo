@@ -4,6 +4,8 @@ import com.smd.orderservice.checkout.CheckoutRejectedException;
 import com.smd.orderservice.checkout.IdempotencyKeyReusedException;
 import com.smd.orderservice.checkout.InvalidOrderException;
 import com.smd.orderservice.checkout.OrderInProgressException;
+import com.smd.orderservice.delivery.NotDeliveredException;
+import com.smd.orderservice.inventory.UnknownProductException;
 import com.smd.orderservice.order.OrderNotFoundException;
 import com.smd.orderservice.order.RejectionReason;
 import java.net.URI;
@@ -48,6 +50,16 @@ public class ApiExceptionHandler {
     @ExceptionHandler(OrderNotFoundException.class)
     ProblemDetail orderNotFound(OrderNotFoundException e) {
         return problem(HttpStatus.NOT_FOUND, "/problems/order-not-found", "Order not found", e);
+    }
+
+    @ExceptionHandler(NotDeliveredException.class)
+    ProblemDetail notDelivered(NotDeliveredException e) {
+        return problem(HttpStatus.CONFLICT, "/problems/not-delivered", "Not delivered yet", e);
+    }
+
+    @ExceptionHandler(UnknownProductException.class)
+    ProblemDetail unknownProduct(UnknownProductException e) {
+        return problem(HttpStatus.NOT_FOUND, "/problems/product-not-found", "Product not found", e);
     }
 
     static HttpStatus statusFor(RejectionReason reason) {

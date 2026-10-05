@@ -6,12 +6,14 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 
 /** No {@code local} profile: the chaos endpoint must not exist. */
 @WebMvcTest(controllers = ChaosController.class)
+@AutoConfigureMockMvc(addFilters = false)   // this test is about the controller existing, not about security
 class ChaosOutsideLocalProfileTest {
 
     @Autowired

@@ -9,6 +9,8 @@ import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeoutException;
 import org.junit.jupiter.api.Test;
 import org.slf4j.MDC;
+import org.springframework.security.authentication.TestingAuthenticationToken;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor;
 
@@ -30,6 +32,19 @@ class ParallelCallsTest extends OrderServiceIntegrationTest {
             assertThat(seen).startsWith("compose-").endsWith("|corr-xyz");
         } finally {
             MDC.remove(CorrelationIds.MDC_KEY);
+        }
+    }
+
+    @Test
+    void theSecurityContextTravelsToTheWorkerThread() {
+        SecurityContextHolder.getContext().setAuthentication(new TestingAuthenticationToken("caller-42", null));
+        try {
+            String seen = ParallelCalls.await(parallelCalls.submit("probe",
+                    () -> SecurityContextHolder.getContext().getAuthentication().getName()));
+
+            assertThat(seen).isEqualTo("caller-42");
+        } finally {
+            SecurityContextHolder.clearContext();
         }
     }
 

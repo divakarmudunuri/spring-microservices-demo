@@ -1,5 +1,6 @@
 plugins {
     id 'spring-service-conventions'
+    id 'security-conventions'
 }
 
 dependencies {
@@ -10,4 +11,10 @@ dependencies {
     runtimeOnly libs.postgresql
 
     testImplementation libs.testcontainers.postgresql
+    testImplementation libs.wiremock.standalone   // fake Google / Okta JWKS in the token-exchange tests
+}
+
+// run from the repository root, so the default key location (.local/keys/) is the same as with `java -jar`
+tasks.named('bootRun') {
+    workingDir = rootProject.projectDir
 }

@@ -1,5 +1,6 @@
 plugins {
     id 'spring-service-conventions'
+    id 'security-conventions'   // OAuth2 resource server (reactive here: the gateway is WebFlux)
 }
 
 // Reactive (WebFlux): never add spring-boot-starter-web here.

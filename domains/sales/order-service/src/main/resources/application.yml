@@ -197,3 +197,8 @@ outbox:
     interval: 500ms
     batch-size: 100
     send-timeout: 10s
+
+security:
+  internal:
+    # the internal issuer's public keys, from user-service by service name (Eureka)
+    jwk-set-uri: http://user-service/.well-known/jwks.json

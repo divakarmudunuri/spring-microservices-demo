@@ -30,4 +30,8 @@ CQRS read model: records every event of every order as a timeline, from `ORDER_I
 - **Rebuild:** the table only holds what the events said, so it can be rebuilt by replaying the topics with a new consumer group from the earliest offset (e.g. `--spring.kafka.consumer.group-id=tracking-rebuild`). Replaying into an existing table is harmless: every event is a duplicate.
 - No "list all orders" endpoint on purpose: that would be a full-table `Scan`. Admins list orders from order-service and open one timeline here.
 
+## Security and admin (phase 11)
+
+Internal JWTs only. A CUSTOMER reads only orders whose `STATE.userId` is their `sub` (someone else's: `404`); an ADMIN reads any, also through `GET /api/admin/tracking/orders/{orderId}`. The timeline of a completed order ends with `DELIVERY_ACKNOWLEDGED`.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

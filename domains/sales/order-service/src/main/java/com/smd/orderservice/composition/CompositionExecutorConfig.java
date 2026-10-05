@@ -38,9 +38,11 @@ public class CompositionExecutorConfig {
         // When pool and queue are full, the calling thread runs the task itself. That slows the caller
         // down (back-pressure) instead of dropping work or throwing.
         executor.setRejectedExecutionHandler(new ThreadPoolExecutor.CallerRunsPolicy());
-        // carries the trace context and MDC (traceId, correlationId) over to the worker thread
+        // Carries every registered ThreadLocal over to the worker thread: the trace context, the MDC (traceId,
+        // correlationId) and the Spring Security context. The last one matters: the Feign interceptor relays the
+        // caller's JWT from it. Spring Security registers its accessor itself (SecurityContextHolderThreadLocalAccessor,
+        // via ServiceLoader), so nothing else is needed; ParallelCallsTest checks it.
         executor.setTaskDecorator(new ContextPropagatingTaskDecorator());
-        // TODO(phase-11): also propagate the Spring Security context (the Feign interceptor reads the JWT from it)
         executor.setWaitForTasksToCompleteOnShutdown(true);
         executor.setAwaitTerminationSeconds(10);
         return executor;

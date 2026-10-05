@@ -18,6 +18,7 @@ public record OrderResponse(
         List<Item> items,
         ShippingAddress shippingAddress,
         UUID cartId,
+        Instant deliveryAcknowledgedAt,
         Instant createdAt) {
 
     public record Item(UUID productId, int quantity, BigDecimal unitPrice) {
@@ -27,6 +28,6 @@ public record OrderResponse(
         return new OrderResponse(order.getId(), order.getStatus(), order.getRejectionReason(),
                 order.getTotalAmount(), order.getCurrency(),
                 order.getItems().stream().map(i -> new Item(i.getProductId(), i.getQuantity(), i.getUnitPrice())).toList(),
-                order.getShippingAddress(), order.getCartId(), order.getCreatedAt());
+                order.getShippingAddress(), order.getCartId(), order.getDeliveryAcknowledgedAt(), order.getCreatedAt());
     }
 }

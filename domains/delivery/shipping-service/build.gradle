@@ -1,9 +1,11 @@
 plugins {
+    id 'security-conventions'
     id 'kafka-conventions'
 }
 
 dependencies {
     implementation libs.spring.boot.starter.web
+    implementation libs.spring.boot.starter.validation
 
     implementation libs.bundles.postgres.jpa
     runtimeOnly libs.postgresql

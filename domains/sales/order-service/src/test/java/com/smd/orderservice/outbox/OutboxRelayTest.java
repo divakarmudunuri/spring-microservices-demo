@@ -38,7 +38,7 @@ class OutboxRelayTest extends OrderServiceIntegrationTest {
     @Test
     void checkoutEventsArePublishedInOrderKeyedByOrderId() throws Exception {
         String body = mvc.perform(post("/api/orders")
-                        .header("X-Demo-User-Id", CUSTOMER).header("Idempotency-Key", "key-relay")
+                        .with(customer(CUSTOMER)).header("Idempotency-Key", "key-relay")
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":\"" + EARBUDS + "\",\"quantity\":2}]}"))
                 .andExpect(status().isCreated()).andReturn().getResponse().getContentAsString();

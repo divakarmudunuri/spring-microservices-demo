@@ -209,7 +209,7 @@ class CheckoutTest extends OrderServiceIntegrationTest {
     @Test
     void correlationIdReachesBothDownstreamCallsFromTheWorkerThreads() throws Exception {
         mvc.perform(post("/api/orders")
-                        .header("X-Demo-User-Id", CUSTOMER)
+                        .with(customer(CUSTOMER))
                         .header("Idempotency-Key", "key-corr")
                         .header("X-Correlation-Id", "corr-123")
                         .contentType(MediaType.APPLICATION_JSON)
@@ -222,8 +222,19 @@ class CheckoutTest extends OrderServiceIntegrationTest {
     }
 
     @Test
+    void theCallersJwtIsRelayedOnBothParallelCalls() throws Exception {
+        placeOrder(CUSTOMER, "key-relay-jwt", item(EARBUDS, 1)).andExpect(status().isCreated());
+
+        // both calls ran on compose- worker threads: the security context travelled with them
+        DOWNSTREAM.verify(getRequestedFor(urlPathMatching("/api/users/.*"))
+                .withHeader("Authorization", equalTo("Bearer " + tokenFor(CUSTOMER))));
+        DOWNSTREAM.verify(getRequestedFor(urlPathEqualTo("/api/products"))
+                .withHeader("Authorization", equalTo("Bearer " + tokenFor(CUSTOMER))));
+    }
+
+    @Test
     void malformedRequestsAreRejectedWithoutRecordingAnOrder() throws Exception {
-        mvc.perform(post("/api/orders").header("X-Demo-User-Id", CUSTOMER)
+        mvc.perform(post("/api/orders").with(customer(CUSTOMER))
                         .contentType(MediaType.APPLICATION_JSON).content(json(item(EARBUDS, 1))))
                 .andExpect(status().isBadRequest());                                   // no Idempotency-Key
         placeOrder(CUSTOMER, "key-dup", item(EARBUDS, 1), item(EARBUDS, 2))
@@ -240,10 +251,10 @@ class CheckoutTest extends OrderServiceIntegrationTest {
         String body = placeOrder(CUSTOMER, "key-own", item(EARBUDS, 1)).andReturn().getResponse().getContentAsString();
         String orderId = objectMapper.readTree(body).get("id").asText();
 
-        mvc.perform(get("/api/orders/{id}", orderId).header("X-Demo-User-Id", CUSTOMER))
+        mvc.perform(get("/api/orders/{id}", orderId).with(customer(CUSTOMER)))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.items[0].unitPrice").value(79.99));
-        mvc.perform(get("/api/orders/{id}", orderId).header("X-Demo-User-Id", "00000000-0000-4000-8000-0000000000c2"))
+        mvc.perform(get("/api/orders/{id}", orderId).with(customer("00000000-0000-4000-8000-0000000000c2")))
                 .andExpect(status().isNotFound());
     }
 
@@ -251,7 +262,7 @@ class CheckoutTest extends OrderServiceIntegrationTest {
 
     private ResultActions placeOrder(UUID userId, String idempotencyKey, String... items) throws Exception {
         return mvc.perform(post("/api/orders")
-                .header("X-Demo-User-Id", userId)
+                .with(customer(userId))
                 .header("Idempotency-Key", idempotencyKey)
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(json(items)));

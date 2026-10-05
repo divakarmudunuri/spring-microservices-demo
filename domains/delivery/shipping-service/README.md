@@ -24,4 +24,8 @@ Creates shipments for packed orders and simulates delivery.
 - `GET /api/shipments/by-order/{orderId}` (used by the aggregator in phase 9). Ownership checks and the admin listing arrive in phase 11.
 - Publishes `shipping-events` through its own outbox + relay. Failed records → `fulfillment-events.DLT`.
 
+## Security and admin (phase 11)
+
+Internal JWTs only. `GET /api/shipments/by-order/{orderId}`: the owner or an ADMIN (someone else's: `404`). Admins: `GET /api/admin/shipments?status=&page=&size=` (newest first) and `GET /api/admin/shipments/{trackingNumber}`.
+
 **Status:** in progress. See `../../../CLAUDE.md` for the full spec and the implementation phases. Data model: `../../../data-model/`.

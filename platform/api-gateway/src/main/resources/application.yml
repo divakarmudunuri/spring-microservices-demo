@@ -125,7 +125,19 @@ resilience4j:
         # route's response-timeout, so the route timeout is the one that applies.
         timeout-duration: 10s
 
+# External issuers the gateway trusts (user-service trusts the same ones). Unset = not trusted.
+security:
+  google:
+    client-id: ${GOOGLE_CLIENT_ID:}
+    jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+  okta:
+    issuer-uri: ${OKTA_ISSUER_URI:}           # https://<OKTA_DOMAIN>/oauth2/default
+    audience: api://default
+    admin-group: smd-admins
+
 gateway:
+  token-exchange:
+    timeout: 3s
   rate-limit:
     authenticated:
       capacity: 60

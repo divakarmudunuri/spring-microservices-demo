@@ -15,7 +15,7 @@ import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
 import org.springframework.test.context.TestPropertySource;
 
-/** CLAUDE.md 6.8: every route goes to its service; everything else is a 404. */
+/** CLAUDE.md 6.8: every route goes to its service; everything else is denied. */
 @TestPropertySource(properties = {"gateway.rate-limit.anonymous.capacity=10000", "gateway.rate-limit.anonymous.refill-per-second=10000"})
 class RoutingTest extends GatewayTestSupport {
 
@@ -39,27 +39,35 @@ class RoutingTest extends GatewayTestSupport {
             "GET,    /api/admin/tracking/orders/123,         order-tracking-service",
     })
     void routesToTheRightService(String method, String path, String expectedService) {
-        client.method(HttpMethod.valueOf(method)).uri(path).exchange()
+        String token = path.startsWith("/api/admin") ? adminToken()
+                : path.startsWith("/api/products") || path.startsWith("/api/categories") ? null : googleToken();
+        client.method(HttpMethod.valueOf(method)).uri(path)
+                .headers(h -> { if (token != null) h.setBearerAuth(token); })
+                .exchange()
                 .expectStatus().isOk()
                 .expectBody().jsonPath("$.service").isEqualTo(expectedService);
         service(expectedService).verify(anyRequestedFor(urlPathEqualTo(path)));   // path forwarded unchanged
     }
 
-    @ParameterizedTest(name = "{0} {1} is not routed")
+    @ParameterizedTest(name = "{0} {1} is denied (customer: {2})")
     @CsvSource({
-            "GET,    /api/users/00000000-0000-4000-8000-0000000000c1",   // internal: service-to-service only
-            "GET,    /internal/chaos",
-            "POST,   /internal/auth/exchange",
-            "GET,    /api/fulfillments",                                 // fulfillment-service is never exposed
-            "GET,    /.well-known/jwks.json",
-            "GET,    /eureka/apps",
-            "POST,   /api/shipments/by-order/123",                       // shipments: GET only
+            "GET,    /api/users/00000000-0000-4000-8000-0000000000c1, 403",   // internal: service-to-service only
+            "GET,    /internal/chaos,                                 403",
+            "POST,   /internal/auth/exchange,                         403",
+            "GET,    /api/fulfillments,                               403",   // fulfillment-service is never exposed
+            "GET,    /.well-known/jwks.json,                          403",
+            "GET,    /eureka/apps,                                    403",
+            "POST,   /api/shipments/by-order/123,                     404",   // allowed for customers, but no POST route
     })
-    void everythingElseIsNotFound(String method, String path) {
+    void everythingElseIsDenied(String method, String path, int customerStatus) {
+        // anything not in the route table is denied: anonymous → 401, a signed-in customer → 403 (or 404: no route)
         client.method(HttpMethod.valueOf(method)).uri(path).exchange()
-                .expectStatus().isNotFound()
+                .expectStatus().isUnauthorized()
                 .expectHeader().contentTypeCompatibleWith("application/problem+json");
-        SERVICES.values().forEach(s -> assertThat(s.getAllServeEvents()).isEmpty());
+        client.method(HttpMethod.valueOf(method)).uri(path).headers(h -> h.setBearerAuth(googleToken())).exchange()
+                .expectStatus().isEqualTo(customerStatus);
+        SERVICES.forEach((name, s) -> assertThat(s.getAllServeEvents())
+                .filteredOn(e -> !e.getRequest().getUrl().equals("/internal/auth/exchange")).isEmpty());
     }
 
     @Test
@@ -87,7 +95,7 @@ class RoutingTest extends GatewayTestSupport {
                 .withHeader("Content-Type", "application/problem+json")
                 .withBody("{\"type\":\"/problems/dependency-unavailable\",\"orderId\":\"o-1\"}")));
 
-        client.post().uri("/api/orders").exchange()
+        client.post().uri("/api/orders").headers(h -> h.setBearerAuth(googleToken())).exchange()
                 .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
                 .expectBody().jsonPath("$.orderId").isEqualTo("o-1");   // order-service's body, not the gateway fallback
     }
@@ -116,7 +124,7 @@ class RoutingTest extends GatewayTestSupport {
                 .withFixedDelay(3_500).withBody("{}")));                // route response-timeout: 3000 ms
 
         long start = System.nanoTime();
-        client.get().uri("/api/tracking/orders/123").exchange()
+        client.get().uri("/api/tracking/orders/123").headers(h -> h.setBearerAuth(googleToken())).exchange()
                 .expectStatus().isEqualTo(HttpStatus.SERVICE_UNAVAILABLE)
                 .expectBody().jsonPath("$.service").isEqualTo("order-tracking-service");
         assertThat((System.nanoTime() - start) / 1_000_000).isBetween(2_900L, 3_400L);

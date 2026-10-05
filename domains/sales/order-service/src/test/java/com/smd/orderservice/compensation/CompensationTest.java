@@ -127,7 +127,7 @@ class CompensationTest extends OrderServiceIntegrationTest {
     }
 
     private UUID confirmedOrder(String key) throws Exception {
-        String body = mvc.perform(post("/api/orders").header("X-Demo-User-Id", CUSTOMER).header("Idempotency-Key", key)
+        String body = mvc.perform(post("/api/orders").with(customer(CUSTOMER)).header("Idempotency-Key", key)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content("{\"items\":[{\"productId\":\"" + EARBUDS + "\",\"quantity\":2},"
                                 + "{\"productId\":\"" + CHARGER + "\",\"quantity\":1}]}"))

@@ -70,3 +70,8 @@ demo:
     poll-interval: 1s
     carrier: DEMO-EXPRESS
     delivery-days: 3
+
+security:
+  internal:
+    # the internal issuer's public keys, from user-service by service name (Eureka)
+    jwk-set-uri: http://user-service/.well-known/jwks.json

@@ -1,6 +1,7 @@
 package com.smd.userservice.chaos;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -11,6 +12,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.test.web.servlet.MockMvc;
 
 class ChaosToggleTest extends PostgresIntegrationTest {
@@ -29,7 +31,7 @@ class ChaosToggleTest extends PostgresIntegrationTest {
     void failureRateOneFailsEveryApiCall() throws Exception {
         setChaos("{\"failureRate\": 1.0}");
 
-        mvc.perform(get(USER_URL))
+        mvc.perform(get(USER_URL).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN"))))
                 .andExpect(status().isInternalServerError())
                 .andExpect(jsonPath("$.type").value("/problems/chaos-failure"));
     }
@@ -39,7 +41,7 @@ class ChaosToggleTest extends PostgresIntegrationTest {
         setChaos("{\"latencyMs\": 300}");
 
         long start = System.nanoTime();
-        mvc.perform(get(USER_URL)).andExpect(status().isOk());
+        mvc.perform(get(USER_URL).with(jwt().authorities(new SimpleGrantedAuthority("ROLE_ADMIN")))).andExpect(status().isOk());
 
         assertThat((System.nanoTime() - start) / 1_000_000).isGreaterThanOrEqualTo(300);
     }

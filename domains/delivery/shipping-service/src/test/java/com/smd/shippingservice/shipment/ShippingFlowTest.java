@@ -2,6 +2,7 @@ package com.smd.shippingservice.shipment;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.awaitility.Awaitility.await;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -19,6 +20,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.test.web.servlet.MockMvc;
 
 @AutoConfigureMockMvc
@@ -106,15 +109,57 @@ class ShippingFlowTest extends ShippingIntegrationTest {
     void shipmentByOrder() throws Exception {
         UUID orderId = label();
 
-        mvc.perform(get("/api/shipments/by-order/{orderId}", orderId))
+        mvc.perform(get("/api/shipments/by-order/{orderId}", orderId).with(caller(CUSTOMER, "CUSTOMER")))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("LABEL_CREATED"))
                 .andExpect(jsonPath("$.carrier").value("DEMO-EXPRESS"))
                 .andExpect(jsonPath("$.trackingNumber").isNotEmpty())
                 .andExpect(jsonPath("$.shippingAddress.postalCode").value("48226"));
-        mvc.perform(get("/api/shipments/by-order/{orderId}", UUID.randomUUID()))
+        mvc.perform(get("/api/shipments/by-order/{orderId}", UUID.randomUUID()).with(caller(CUSTOMER, "CUSTOMER")))
                 .andExpect(status().isNotFound())
                 .andExpect(jsonPath("$.type").value("/problems/shipment-not-found"));
+    }
+
+    @Test
+    void onlyTheOwnerOrAnAdminSeesAShipment() throws Exception {
+        UUID orderId = label();   // owned by CUSTOMER
+
+        mvc.perform(get("/api/shipments/by-order/{orderId}", orderId)
+                        .with(caller(UUID.fromString("00000000-0000-4000-8000-0000000000c2"), "CUSTOMER")))
+                .andExpect(status().isNotFound());   // someone else's: 404, not 403
+        mvc.perform(get("/api/shipments/by-order/{orderId}", orderId)
+                        .with(caller(UUID.fromString("00000000-0000-4000-8000-0000000000a1"), "ADMIN")))
+                .andExpect(status().isOk());
+        mvc.perform(get("/api/shipments/by-order/{orderId}", orderId)).andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void adminsListAllShipmentsAndFindOneByTrackingNumber() throws Exception {
+        UUID first = label();
+        UUID second = label();
+        simulator.advanceDue();   // both → PICKED_UP
+        String tracking = shipments.findByOrderId(second).orElseThrow().getTrackingNumber();
+        RequestPostProcessor admin = caller(UUID.fromString("00000000-0000-4000-8000-0000000000a1"), "ADMIN");
+
+        mvc.perform(get("/api/admin/shipments").with(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.totalElements").value(2))
+                .andExpect(jsonPath("$.content[0].orderId").value(second.toString()))   // newest first
+                .andExpect(jsonPath("$.content[1].orderId").value(first.toString()));
+        mvc.perform(get("/api/admin/shipments").param("status", "DELIVERED").with(admin))
+                .andExpect(jsonPath("$.totalElements").value(0));
+        mvc.perform(get("/api/admin/shipments/{tn}", tracking).with(admin))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.orderId").value(second.toString()))
+                .andExpect(jsonPath("$.userId").value(CUSTOMER.toString()));
+        mvc.perform(get("/api/admin/shipments/{tn}", "SMDNOPE").with(admin)).andExpect(status().isNotFound());
+
+        mvc.perform(get("/api/admin/shipments").with(caller(CUSTOMER, "CUSTOMER"))).andExpect(status().isForbidden());
+        mvc.perform(get("/api/admin/shipments")).andExpect(status().isUnauthorized());
+    }
+
+    static RequestPostProcessor caller(UUID id, String role) {
+        return jwt().jwt(j -> j.subject(id.toString())).authorities(new SimpleGrantedAuthority("ROLE_" + role));
     }
 
     @Test

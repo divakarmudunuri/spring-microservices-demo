@@ -50,6 +50,26 @@ public class Address {
         // for JPA
     }
 
+    public static Address newDefault(UUID userId) {
+        Address a = new Address();
+        a.id = UUID.randomUUID();
+        a.userId = userId;
+        a.isDefault = true;
+        return a;
+    }
+
+    public void update(String fullName, String line1, String line2, String city, String state, String postalCode,
+                       String country, String phone) {
+        this.fullName = fullName;
+        this.line1 = line1;
+        this.line2 = line2;
+        this.city = city;
+        this.state = state;
+        this.postalCode = postalCode;
+        this.country = country.toUpperCase();
+        this.phone = phone;
+    }
+
     public UUID getId() {
         return id;
     }

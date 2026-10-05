@@ -48,6 +48,9 @@ public final class OrderEventPayloads {
     public record OrderCancelled(String reason) {
     }
 
+    public record DeliveryAcknowledged(Instant acknowledgedAt) {
+    }
+
     /** On {@code inventory-events}: the new exact quantity (only product-service's level is public). */
     public record InventoryChanged(UUID productId, int quantityOnHand) {
     }

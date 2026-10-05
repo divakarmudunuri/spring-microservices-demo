@@ -24,3 +24,8 @@ eureka:
       defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
   instance:
     prefer-ip-address: true
+
+security:
+  internal:
+    # the internal issuer's public keys, from user-service by service name (Eureka)
+    jwk-set-uri: http://user-service/.well-known/jwks.json

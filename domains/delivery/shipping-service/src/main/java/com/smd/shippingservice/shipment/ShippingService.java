@@ -15,6 +15,8 @@ import java.util.Optional;
 import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -65,7 +67,17 @@ public class ShippingService {
                 new ShippingPayloads.Created(shipment.getId(), shipment.getTrackingNumber(), shipment.getCarrier(), estimated));
     }
 
-    /** TODO(phase-11): only the owner (JWT sub = userId) or an ADMIN; someone else's shipment is a 404. */
+    /** Admins: every shipment (or those in one status), newest first (index ix_shipments_status_created). */
+    @Transactional(readOnly = true)
+    public Page<Shipment> list(ShipmentStatus status, Pageable pageable) {
+        return status == null ? shipments.findAll(pageable) : shipments.findByStatus(status, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<Shipment> findByTrackingNumber(String trackingNumber) {
+        return shipments.findByTrackingNumber(trackingNumber);
+    }
+
     @Transactional(readOnly = true)
     public Optional<Shipment> findByOrder(UUID orderId) {
         return shipments.findByOrderId(orderId);

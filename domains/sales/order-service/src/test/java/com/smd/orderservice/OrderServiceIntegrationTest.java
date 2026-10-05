@@ -5,6 +5,7 @@ import static com.github.tomakehurst.wiremock.client.WireMock.get;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathEqualTo;
 import static com.github.tomakehurst.wiremock.client.WireMock.urlPathMatching;
 import static com.github.tomakehurst.wiremock.core.WireMockConfiguration.options;
+import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.jwt;
 
 import com.github.tomakehurst.wiremock.WireMockServer;
 import io.github.resilience4j.circuitbreaker.CircuitBreaker;
@@ -13,6 +14,8 @@ import java.math.BigDecimal;
 import java.util.List;
 import java.util.UUID;
 import org.junit.jupiter.api.BeforeEach;
+import org.springframework.security.core.authority.SimpleGrantedAuthority;
+import org.springframework.test.web.servlet.request.RequestPostProcessor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -113,6 +116,27 @@ public abstract class OrderServiceIntegrationTest {
              {"id":"%s","name":"Mechanical Keyboard","description":"...","price":129.00,"currency":"USD"},
              {"id":"%s","name":"27\\" 4K Monitor","description":"...","price":349.00,"currency":"USD"}]"""
             .formatted(EARBUDS, CHARGER, KEYBOARD, MONITOR);
+
+    // ---- callers (an internal JWT as user-service would issue it; MockMvc skips the signature check) ----
+
+    /** The token value is "token-for-<id>", so tests can check it is relayed downstream. */
+    protected static RequestPostProcessor customer(UUID id) {
+        return jwt().jwt(j -> j.subject(id.toString()).tokenValue(tokenFor(id)))
+                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"));
+    }
+
+    protected static RequestPostProcessor customer(String id) {
+        return customer(UUID.fromString(id));
+    }
+
+    protected static RequestPostProcessor admin() {
+        return jwt().jwt(j -> j.subject("00000000-0000-4000-8000-0000000000a1").tokenValue("token-for-admin"))
+                .authorities(new SimpleGrantedAuthority("ROLE_ADMIN"));
+    }
+
+    protected static String tokenFor(UUID id) {
+        return "token-for-" + id;
+    }
 
     // ---- database helpers -------------------------------------------------------------------------
 

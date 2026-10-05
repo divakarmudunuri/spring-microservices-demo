@@ -57,15 +57,15 @@ Within one transaction the events are written in the order above (`INVENTORY_RES
 | `PAYMENT_REFUNDED` | compensation transaction | `paymentId`, `amount`, `currency` |
 | `ORDER_CANCELLED` | compensation transaction | `reason` (from `FULFILLMENT_FAILED`) |
 
-The three compensation events are written in that order, in the same transaction as the restock and the refund (plus one `INVENTORY_CHANGED` per product on `inventory-events`).
+| `DELIVERY_ACKNOWLEDGED` | the customer confirmed delivery (order `DELIVERED` → `COMPLETED`) | `acknowledgedAt` |
 
-Still to come: `DELIVERY_ACKNOWLEDGED` (phase 11).
+The three compensation events are written in that order, in the same transaction as the restock and the refund (plus one `INVENTORY_CHANGED` per product on `inventory-events`). `DELIVERY_ACKNOWLEDGED` is the last event of a successful order; tracking gives it the highest rank.
 
 ## `inventory-events` (order-service)
 
 | Event | When | Payload |
 |---|---|---|
-| `INVENTORY_CHANGED` | every stock change: checkout (one per product), and later cancellation and admin restock | `productId`, `quantityOnHand` |
+| `INVENTORY_CHANGED` | every stock change: checkout and cancellation (one per product), admin restock | `productId`, `quantityOnHand` |
 
 `orderId` and `userId` are null. product-service turns the quantity into a public level (`IN_STOCK` / `LOW_STOCK` / `OUT_OF_STOCK`) and ignores events older than the last one it applied. The exact quantity never leaves the backend.
 

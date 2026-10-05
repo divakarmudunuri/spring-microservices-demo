@@ -9,3 +9,13 @@ management:
       exposure:
         # local only: GET /actuator/gateway/routes lists the routes; circuit breakers too
         include: health, info, metrics, prometheus, gateway, circuitbreakers
+
+# The mock OIDC server in dev-idp/ stands in for Google and Okta (local only; startup fails elsewhere).
+# Each issuer is listed under both addresses (oauth2-proxy's tokens say dev-idp:8080, dev-token.sh's say
+# localhost:8099); keys come from localhost:8099 because the gateway runs on your machine. See dev-idp/README.md.
+security:
+  dev-issuers:
+    - { issuer: "http://dev-idp:8080/dev-customer",   jwk-set-uri: "http://localhost:8099/dev-customer/jwks", audience: dev-client,    role: CUSTOMER }
+    - { issuer: "http://localhost:8099/dev-customer", jwk-set-uri: "http://localhost:8099/dev-customer/jwks", audience: dev-client,    role: CUSTOMER }
+    - { issuer: "http://dev-idp:8080/dev-admin",      jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }
+    - { issuer: "http://localhost:8099/dev-admin",    jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }

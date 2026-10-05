@@ -16,7 +16,7 @@
 
 services:
   dev-idp:
-    image: ghcr.io/navikt/mock-oauth2-server:${DEV_IDP_VERSION:-3.1.4}
+    image: ghcr.io/navikt/mock-oauth2-server:${DEV_IDP_VERSION:-3.0.3}
     profiles: ["dev-idp"]
     environment:
       SERVER_PORT: "8080"

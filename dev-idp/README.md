@@ -93,11 +93,13 @@ for i in $(seq 1 100); do curl -s -o /dev/null -w '%{http_code}\n' \
 
 ## Still to verify on first run
 
-These follow the mock server's documentation but couldn't be run while writing this folder (its download was blocked):
+These follow the mock server's documentation; items 2 and 3 have now been checked (2026-10-05, phase 11).
 
-1. **The internal/browser URL split.** Sign-in completes, and oauth2-proxy accepts the `iss` of the redeemed token.
-2. **The password grant** matches users via `requestParam: "username"`. The config also maps `subject`, which is what the login page uses, so both paths are covered either way.
-3. **Admin access token:** `groups` and `aud=api://default` are present in it, not just in the ID token. The mock server's docs say mapped claims go into both.
+1. **The internal/browser URL split.** Sign-in completes, and oauth2-proxy accepts the `iss` of the redeemed token. *Not checked yet: needs the nginx stack (phase 13).*
+2. **The password grant** matches users via `requestParam: "username"`. ✅ `dev-token.sh customer|admin|not-admin` return tokens with the mapped claims (`iss = http://localhost:8099/<issuer>`).
+3. **Admin access token:** `groups` and `aud=api://default` are present in it, not just in the ID token. ✅ `groups: ["smd-admins"]` and `aud: api://default` (and `groups: []` for `sample-not-admin`). user-service exchanged them: `sample-customer` → `…c1` CUSTOMER, `sample-admin` → `…a1` ADMIN, `sample-not-admin` → 403.
+
+> **Image version:** pinned to `3.0.3` (the spec said 3.1, but there is no 3.1.x on ghcr.io; the 3.x line ends at `3.0.3`). That's the version checked above. Override with `DEV_IDP_VERSION`.
 
 If any of these fail, fix it here, then update this README and `CLAUDE.md` 6.11.
 

@@ -16,6 +16,7 @@ public class StockMovement {
 
     public static final String ORDER_CONFIRMED = "ORDER_CONFIRMED";
     public static final String ORDER_CANCELLED = "ORDER_CANCELLED";
+    public static final String RESTOCK = "RESTOCK";
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -41,6 +42,17 @@ public class StockMovement {
 
     protected StockMovement() {
         // for JPA
+    }
+
+    /** An admin added stock: who did it and why are recorded. */
+    public static StockMovement restock(UUID productId, int quantity, UUID adminId, String note) {
+        StockMovement m = new StockMovement();
+        m.productId = productId;
+        m.delta = quantity;
+        m.reason = RESTOCK;
+        m.performedBy = adminId;
+        m.note = note;
+        return m;
     }
 
     /** Stock given back because the order was cancelled (positive delta). */

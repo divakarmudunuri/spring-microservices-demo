@@ -113,6 +113,14 @@ class CatalogApiTest extends PostgresIntegrationTest {
     }
 
     @Test
+    void theCatalogIsPublicButAnInvalidTokenIsRejected() throws Exception {
+        mvc.perform(get("/api/products")).andExpect(status().isOk());              // no token: fine
+        mvc.perform(get("/api/categories")).andExpect(status().isOk());
+        mvc.perform(get("/api/products").header("Authorization", "Bearer not-a-valid-jwt"))
+                .andExpect(status().isUnauthorized());                            // a token that is present must be valid
+    }
+
+    @Test
     void responsesNeverContainExactStock() throws Exception {
         String body = mvc.perform(get("/api/products").param("size", "100"))
                 .andReturn().getResponse().getContentAsString();

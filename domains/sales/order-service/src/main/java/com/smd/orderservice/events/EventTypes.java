@@ -14,6 +14,7 @@ public final class EventTypes {
     public static final String INVENTORY_RESTORED = "INVENTORY_RESTORED";
     public static final String PAYMENT_REFUNDED = "PAYMENT_REFUNDED";
     public static final String ORDER_CANCELLED = "ORDER_CANCELLED";
+    public static final String DELIVERY_ACKNOWLEDGED = "DELIVERY_ACKNOWLEDGED";
 
     private EventTypes() {
     }

@@ -11,3 +11,14 @@ demo:
     # starting values; change at runtime with POST /internal/chaos
     latency-ms: 0
     failure-rate: 0.0
+
+# The mock OIDC server in dev-idp/ stands in for Google and Okta (local only; startup fails elsewhere).
+# Each issuer is listed under both addresses: tokens minted for oauth2-proxy say dev-idp:8080,
+# tokens from dev-token.sh say localhost:8099. Keys are fetched from localhost:8099 (this service runs on
+# your machine; use http://dev-idp:8080/... when it runs in Docker). See dev-idp/README.md.
+security:
+  dev-issuers:
+    - { issuer: "http://dev-idp:8080/dev-customer",   jwk-set-uri: "http://localhost:8099/dev-customer/jwks", audience: dev-client,    role: CUSTOMER }
+    - { issuer: "http://localhost:8099/dev-customer", jwk-set-uri: "http://localhost:8099/dev-customer/jwks", audience: dev-client,    role: CUSTOMER }
+    - { issuer: "http://dev-idp:8080/dev-admin",      jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }
+    - { issuer: "http://localhost:8099/dev-admin",    jwk-set-uri: "http://localhost:8099/dev-admin/jwks",    audience: "api://default", role: ADMIN, required-group: smd-admins }
